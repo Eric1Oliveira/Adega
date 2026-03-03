@@ -1,0 +1,196 @@
+/* ============================================
+   ADEGA MANAGER - Professional Dark Theme
+   ============================================ */
+
+body {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Sidebar */
+.sidebar-item {
+  transition: all 0.15s ease;
+  position: relative;
+}
+.sidebar-item:hover {
+  transform: translateX(2px);
+}
+.sidebar-item.active-nav {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-left: 3px solid #d49b28;
+  padding-left: 13px;
+}
+
+/* Cards */
+.card-hover {
+  transition: all 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card {
+  background: #ffffff;
+  border: 1px solid #eceef3;
+}
+.dark .stat-card {
+  background: #1c202a;
+  border: 1px solid #2e3340;
+}
+
+/* Primary Button - Gold accent */
+.btn-primary {
+  background: #1c202a;
+  border: 1px solid #2e3340;
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background: #2e3340;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+.dark .btn-primary {
+  background: #d49b28;
+  border: 1px solid #d49b28;
+  color: #12151c;
+}
+.dark .btn-primary:hover {
+  background: #e0b243;
+  border-color: #e0b243;
+  box-shadow: 0 4px 12px rgba(212, 155, 40, 0.3);
+}
+
+/* Glass effect - clean white cards */
+.glass-effect {
+  background: #ffffff;
+  border: 1px solid #eceef3;
+}
+.dark .glass-effect {
+  background: #1c202a;
+  border: 1px solid #2e3340;
+}
+
+/* Progress bar */
+.progress-bar {
+  background: linear-gradient(90deg, #1c202a, #43495c);
+}
+.dark .progress-bar {
+  background: linear-gradient(90deg, #d49b28, #e0b243);
+}
+
+/* Animations */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in {
+  animation: slideIn 0.25s ease forwards;
+}
+
+@keyframes pulse-alert {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 155, 40, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(212, 155, 40, 0); }
+}
+.pulse-alert {
+  animation: pulse-alert 2s infinite;
+}
+
+/* Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(28, 32, 42, 0.25);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 32, 42, 0.4);
+}
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Form inputs focus */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #d49b28 !important;
+  box-shadow: 0 0 0 2px rgba(212, 155, 40, 0.15);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(212, 155, 40, 0.2);
+  color: inherit;
+}
+
+/* ============================================
+   REPORTS - Analytics Dashboard
+   ============================================ */
+
+/* KPI Cards */
+.report-kpi-card {
+  background: #ffffff;
+  border: 1px solid #eceef3;
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  transition: all 0.2s ease;
+}
+.report-kpi-card:hover {
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.dark .report-kpi-card {
+  background: #1c202a;
+  border-color: #2e3340;
+}
+.dark .report-kpi-card:hover {
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* Period Filter Bar */
+.report-period-bar {
+  background: #f6f7f9;
+  border: 1px solid #eceef3;
+  border-radius: 0.75rem;
+  padding: 4px;
+}
+.dark .report-period-bar {
+  background: #12151c;
+  border-color: #2e3340;
+}
+.report-period-btn {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  color: #67708a;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.report-period-btn:hover {
+  color: #1c202a;
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark .report-period-btn:hover {
+  color: #eceef3;
+  background: rgba(255, 255, 255, 0.06);
+}
+.report-period-btn.active {
+  background: #1c202a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.dark .report-period-btn.active {
+  background: #d49b28;
+  color: #12151c;
+  box-shadow: 0 2px 8px rgba(212, 155, 40, 0.25);
+}

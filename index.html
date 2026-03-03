@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="pt-BR" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adega Manager Pro</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            wine: {
+              50:  '#f6f7f9',
+              100: '#eceef3',
+              200: '#d5d9e2',
+              300: '#b1b9c8',
+              400: '#8692a7',
+              500: '#67708a',
+              600: '#525b71',
+              700: '#43495c',
+              800: '#2e3340',
+              900: '#1c202a',
+              950: '#12151c',
+            },
+            cream: {
+              50:  '#FAFAFA',
+              100: '#F5F5F5',
+              200: '#EEEEEE',
+              300: '#E0E0E0',
+              400: '#BDBDBD',
+              500: '#9E9E9E',
+            },
+            oak: {
+              50:  '#F7F7F5',
+              100: '#EDEDED',
+              200: '#DCDCD8',
+              300: '#BFBFB8',
+              400: '#9C9C93',
+              500: '#7A7A72',
+              600: '#5E5E58',
+              700: '#4A4A45',
+              800: '#353532',
+              900: '#252523',
+              950: '#161614',
+            },
+            accent: {
+              50:  '#fdfaf2',
+              100: '#f9f0d5',
+              200: '#f2dfa9',
+              300: '#e9c86f',
+              400: '#e0b243',
+              500: '#d49b28',
+              600: '#b87d1a',
+              700: '#955f18',
+              800: '#7a4c1b',
+              900: '#653f1a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gray-50 dark:bg-gray-950 font-sans overflow-auto text-gray-800 dark:text-gray-200">
+  <div id="app" class="h-full w-full flex">
+   <!-- Sidebar -->
+   <aside id="sidebar" class="w-64 bg-wine-900 dark:bg-wine-950 h-full flex flex-col shadow-2xl z-20 fixed lg:relative transition-transform duration-300 -translate-x-full lg:translate-x-0 border-r border-wine-800/50">
+    <div class="p-6 border-b border-white/10">
+     <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-accent-500 flex items-center justify-center shadow-lg shadow-accent-500/20">
+       <svg class="w-6 h-6 text-wine-950" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+       </svg>
+      </div>
+      <div>
+       <h1 id="business-name" class="font-bold text-lg text-white tracking-tight">Adega Manager</h1>
+       <p class="text-xs text-wine-400 uppercase tracking-wider font-medium">Sistema de Gestão</p>
+      </div>
+     </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
+     <button onclick="navigateTo('dashboard')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="dashboard">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+      </svg> Dashboard </button> <button onclick="navigateTo('products')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="products">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg> Catálogo </button> <button onclick="navigateTo('stock-entry')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="stock-entry">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+      </svg> Estoque </button> <button onclick="navigateTo('sales')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="sales">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg> PDV </button> <button onclick="navigateTo('financial')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="financial">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg> Financeiro </button> <button onclick="navigateTo('reports')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="reports">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg> Relatórios </button> <button onclick="navigateTo('alerts')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium relative transition-colors" data-nav="alerts">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg> Alertas <span id="alert-badge" class="absolute right-2 top-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold hidden">0</span> </button> <button onclick="navigateTo('suppliers')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="suppliers">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg> Fornecedores </button>
+    </nav>
+    <div class="p-4 border-t border-white/10">
+     <button onclick="toggleDarkMode()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-400 hover:bg-white/10 hover:text-white font-medium transition-colors">
+      <svg id="theme-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+      </svg><span id="theme-text">Modo Escuro</span> </button>
+    </div>
+   </aside><!-- Mobile menu button --> <button onclick="toggleSidebar()" class="lg:hidden fixed top-4 left-4 z-30 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+    <svg class="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg></button> <!-- Main Content -->
+   <main class="flex-1 h-full overflow-y-auto scrollbar-thin">
+    <div class="p-4 lg:p-8">
+     <!-- Dashboard Page -->
+     <div id="page-dashboard" class="page-content">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Dashboard</h2>
+       <p class="text-wine-600 dark:text-wine-400">Visão geral do seu negócio</p>
+      </div><!-- Quick Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+       <div class="stat-card rounded-2xl p-6 shadow-lg card-hover border border-wine-100 dark:border-wine-800/50">
+        <div class="flex items-center justify-between mb-4">
+         <div class="w-12 h-12 rounded-xl bg-wine-800 dark:bg-wine-700 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+         </div><span class="text-xs font-medium text-wine-600 dark:text-wine-400 bg-wine-100 dark:bg-wine-900/50 px-2 py-1 rounded-full">Estoque</span>
+        </div>
+        <p id="stat-total-stock" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">itens em estoque</p>
+       </div>
+       <div class="stat-card rounded-2xl p-6 shadow-lg card-hover border border-wine-100 dark:border-wine-800/50">
+        <div class="flex items-center justify-between mb-4">
+         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+         </div><span class="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded-full">+12%</span>
+        </div>
+        <p id="stat-daily-sales" class="text-3xl font-bold text-gray-900 dark:text-white">R$ 0</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">vendas hoje</p>
+       </div>
+       <div class="stat-card rounded-2xl p-6 shadow-lg card-hover border border-wine-100 dark:border-wine-800/50">
+        <div class="flex items-center justify-between mb-4">
+         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+         </div><span class="text-xs font-medium text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-900/50 px-2 py-1 rounded-full">Lucro</span>
+        </div>
+        <p id="stat-daily-profit" class="text-3xl font-bold text-gray-900 dark:text-white">R$ 0</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">lucro hoje</p>
+       </div>
+       <div class="stat-card rounded-2xl p-6 shadow-lg card-hover border border-wine-100 dark:border-wine-800/50">
+        <div class="flex items-center justify-between mb-4">
+         <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+         </div><span id="alert-count-badge" class="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 px-2 py-1 rounded-full">0 alertas</span>
+        </div>
+        <p id="stat-low-stock" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">itens abaixo do mínimo</p>
+       </div>
+      </div><!-- Charts and Tables -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+       <!-- Sales Chart -->
+       <div class="lg:col-span-2 glass-effect rounded-2xl p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-6">
+         <h3 class="text-lg font-bold text-wine-900 dark:text-white">Vendas da Semana</h3><select class="text-sm border border-wine-200 dark:border-wine-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"> <option>Esta semana</option> <option>Último mês</option> <option>Último trimestre</option> </select>
+        </div>
+        <div id="sales-chart" class="h-64 flex items-end justify-around gap-2 px-4">
+         <!-- Chart bars will be generated dynamically -->
+        </div>
+        <div class="flex justify-around mt-4 text-xs text-gray-500 dark:text-gray-400">
+         <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+        </div>
+       </div><!-- Top Products -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Mais Vendidos</h3>
+        <div id="top-products" class="space-y-4">
+         <p class="text-gray-500 dark:text-gray-400 text-sm">Nenhum produto vendido ainda</p>
+        </div>
+       </div>
+      </div><!-- Recent Activity -->
+      <div class="glass-effect rounded-2xl p-6 shadow-lg">
+       <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Atividade Recente</h3>
+       <div id="recent-activity" class="space-y-3">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">Nenhuma atividade recente</p>
+       </div>
+      </div>
+     </div><!-- Products Page -->
+     <div id="page-products" class="page-content hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+       <div>
+        <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Produtos</h2>
+        <p class="text-wine-600 dark:text-wine-400">Gerencie seu catálogo de produtos</p>
+       </div><button onclick="openProductModal()" class="btn-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg> Novo Produto </button>
+      </div><!-- Search and Filters -->
+      <div class="glass-effect rounded-2xl p-4 mb-6 shadow-lg">
+       <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1 relative">
+         <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+         </svg><input type="text" id="product-search" placeholder="Buscar por nome, código ou marca..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent" oninput="filterProducts()">
+        </div><select id="category-filter" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" onchange="filterProducts()"> <option value="">Todas categorias</option> <option value="vinho-tinto">Vinho Tinto</option> <option value="vinho-branco">Vinho Branco</option> <option value="vinho-rose">Vinho Rosé</option> <option value="espumante">Espumante</option> <option value="champagne">Champagne</option> <option value="cerveja">Cerveja</option> <option value="destilado">Destilado</option> <option value="outros">Outros</option> </select> <select id="stock-filter" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" onchange="filterProducts()"> <option value="">Todo estoque</option> <option value="low">Estoque baixo</option> <option value="out">Sem estoque</option> <option value="ok">Estoque OK</option> </select>
+       </div>
+      </div><!-- Products Grid -->
+      <div id="products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+       <p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">Nenhum produto cadastrado. Clique em "Novo Produto" para começar.</p>
+      </div>
+     </div><!-- Stock Entry Page -->
+     <div id="page-stock-entry" class="page-content hidden">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Entrada de Estoque</h2>
+       <p class="text-wine-600 dark:text-wine-400">Registre novas entradas de mercadoria</p>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+       <!-- Entry Form -->
+       <div class="lg:col-span-2 glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Nova Entrada</h3>
+        <form id="stock-entry-form" onsubmit="saveStockEntry(event)" class="space-y-4">
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Produto</label> <select id="entry-product" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"> <option value="">Selecione um produto</option> </select>
+          </div>
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fornecedor</label> <select id="entry-supplier" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"> <option value="">Selecione um fornecedor</option> </select>
+          </div>
+         </div>
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantidade</label> <input type="number" id="entry-quantity" min="1" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custo Unitário (R$)</label> <input type="number" id="entry-cost" step="0.01" min="0" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nº Nota Fiscal</label> <input type="text" id="entry-invoice" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+         </div>
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lote</label> <input type="text" id="entry-batch" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Validade</label> <input type="date" id="entry-expiry" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+         </div>
+         <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label> <textarea id="entry-notes" rows="2" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"></textarea>
+         </div><button type="submit" class="btn-primary w-full text-white py-3 rounded-xl font-semibold shadow-lg"> Registrar Entrada </button>
+        </form>
+       </div><!-- Recent Entries -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Entradas Recentes</h3>
+        <div id="recent-entries" class="space-y-3">
+         <p class="text-gray-500 dark:text-gray-400 text-sm">Nenhuma entrada registrada</p>
+        </div>
+       </div>
+      </div>
+     </div><!-- Sales (POS) Page -->
+     <div id="page-sales" class="page-content hidden">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">PDV - Ponto de Venda</h2>
+       <p class="text-wine-600 dark:text-wine-400">Registre vendas rapidamente</p>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+       <!-- Product Selection -->
+       <div class="lg:col-span-2 glass-effect rounded-2xl p-6 shadow-lg">
+        <div class="flex items-center gap-4 mb-6">
+         <div class="flex-1 relative">
+          <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg><input type="text" id="pos-search" placeholder="Buscar produto ou código de barras..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500" oninput="filterPosProducts()">
+         </div>
+        </div>
+        <div id="pos-products" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto scrollbar-thin">
+         <p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">Nenhum produto disponível</p>
+        </div>
+       </div><!-- Cart -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg flex flex-col">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-4">Carrinho</h3>
+        <div id="cart-items" class="flex-1 space-y-3 overflow-y-auto scrollbar-thin max-h-64 mb-4">
+         <p class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">Carrinho vazio</p>
+        </div>
+        <div class="border-t border-wine-200 dark:border-wine-700 pt-4 space-y-3">
+         <div class="flex justify-between text-sm">
+          <span class="text-gray-600 dark:text-gray-400">Subtotal</span> <span id="cart-subtotal" class="font-medium text-gray-900 dark:text-white">R$ 0,00</span>
+         </div>
+         <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600 dark:text-gray-400">Desconto</span> <input type="number" id="cart-discount" value="0" min="0" step="0.01" class="flex-1 px-3 py-2 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm text-right" onchange="updateCartTotal()">
+         </div>
+         <div class="flex justify-between text-lg font-bold">
+          <span class="text-wine-900 dark:text-white">Total</span> <span id="cart-total" class="text-accent-600 dark:text-accent-400">R$ 0,00</span>
+         </div>
+         <div class="grid grid-cols-2 gap-2 pt-2">
+          <button type="button" class="px-4 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors flex items-center justify-center gap-1.5" onclick="setPaymentMethod('dinheiro')"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Dinheiro</button> <button type="button" class="px-4 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors flex items-center justify-center gap-1.5" onclick="setPaymentMethod('cartao')"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg> Cartão</button> <button type="button" class="px-4 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors flex items-center justify-center gap-1.5" onclick="setPaymentMethod('pix')"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> PIX</button> <button type="button" class="px-4 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors flex items-center justify-center gap-1.5" onclick="setPaymentMethod('fiado')"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Fiado</button>
+         </div>
+         <div id="payment-method-display" class="text-center text-sm text-wine-600 dark:text-wine-400 font-medium hidden">
+          Pagamento: <span id="selected-payment">-</span>
+         </div><button type="button" onclick="finalizeSale()" class="btn-primary w-full text-white py-3 rounded-xl font-semibold shadow-lg mt-2"> Finalizar Venda </button> <button type="button" onclick="clearCart()" class="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-wine-600 dark:hover:text-wine-400"> Limpar Carrinho </button>
+        </div>
+       </div>
+      </div>
+     </div><!-- Financial Page -->
+     <div id="page-financial" class="page-content hidden">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Financeiro</h2>
+       <p class="text-wine-600 dark:text-wine-400">Controle completo das finanças</p>
+      </div><!-- Financial Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+       <div class="glass-effect rounded-2xl p-6 shadow-lg card-hover">
+        <div class="flex items-center gap-3 mb-3">
+         <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+         </div><span class="text-sm font-medium text-gray-600 dark:text-gray-400">Receitas (Mês)</span>
+        </div>
+        <p id="financial-revenue" class="text-2xl font-bold text-green-600 dark:text-green-400">R$ 0,00</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-6 shadow-lg card-hover">
+        <div class="flex items-center gap-3 mb-3">
+         <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+          </svg>
+         </div><span class="text-sm font-medium text-gray-600 dark:text-gray-400">Despesas (Mês)</span>
+        </div>
+        <p id="financial-expenses" class="text-2xl font-bold text-red-600 dark:text-red-400">R$ 0,00</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-6 shadow-lg card-hover">
+        <div class="flex items-center gap-3 mb-3">
+         <div class="w-10 h-10 rounded-lg bg-accent-100 dark:bg-accent-900/50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-accent-600 dark:text-accent-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+         </div><span class="text-sm font-medium text-gray-600 dark:text-gray-400">Lucro Líquido</span>
+        </div>
+        <p id="financial-profit" class="text-2xl font-bold text-accent-600 dark:text-accent-400">R$ 0,00</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-6 shadow-lg card-hover">
+        <div class="flex items-center gap-3 mb-3">
+         <div class="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+         </div><span class="text-sm font-medium text-gray-600 dark:text-gray-400">Fiado Pendente</span>
+        </div>
+        <p id="financial-credit" class="text-2xl font-bold text-amber-600 dark:text-amber-400">R$ 0,00</p>
+       </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+       <!-- Add Expense -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Registrar Despesa</h3>
+        <form id="expense-form" onsubmit="saveExpense(event)" class="space-y-4">
+         <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Descrição</label> <input type="text" id="expense-description" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+         </div>
+         <div class="grid grid-cols-2 gap-4">
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Valor (R$)</label> <input type="number" id="expense-amount" step="0.01" min="0" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+          </div>
+          <div>
+           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria</label> <select id="expense-category" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"> <option value="fornecedor">Fornecedor</option> <option value="aluguel">Aluguel</option> <option value="energia">Energia</option> <option value="funcionario">Funcionário</option> <option value="outros">Outros</option> </select>
+          </div>
+         </div><button type="submit" class="btn-primary w-full text-white py-3 rounded-xl font-semibold shadow-lg"> Registrar Despesa </button>
+        </form>
+       </div><!-- Recent Transactions -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Transações Recentes</h3>
+        <div id="recent-transactions" class="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
+         <p class="text-gray-500 dark:text-gray-400 text-sm">Nenhuma transação registrada</p>
+        </div>
+       </div>
+      </div>
+     </div><!-- Reports Page -->
+     <div id="page-reports" class="page-content hidden">
+      <!-- Header + Period Filter -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+       <div>
+        <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-1">Relatórios</h2>
+        <p class="text-wine-600 dark:text-wine-400 text-sm">Análise em tempo real do seu negócio</p>
+       </div>
+       <div class="flex items-center gap-2 report-period-bar">
+        <button onclick="setReportPeriod('today')" data-period="today" class="report-period-btn active">Hoje</button>
+        <button onclick="setReportPeriod('7d')" data-period="7d" class="report-period-btn">7 dias</button>
+        <button onclick="setReportPeriod('30d')" data-period="30d" class="report-period-btn">30 dias</button>
+        <button onclick="setReportPeriod('90d')" data-period="90d" class="report-period-btn">90 dias</button>
+        <button onclick="setReportPeriod('all')" data-period="all" class="report-period-btn">Tudo</button>
+       </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+       <div class="report-kpi-card">
+        <div class="flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-accent-500/10 dark:bg-accent-500/20 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-accent-600 dark:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+         </div>
+         <div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Receita</p>
+          <p id="rpt-kpi-revenue" class="text-lg font-bold text-wine-900 dark:text-white">R$ 0</p>
+         </div>
+        </div>
+       </div>
+       <div class="report-kpi-card">
+        <div class="flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+         </div>
+         <div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Lucro</p>
+          <p id="rpt-kpi-profit" class="text-lg font-bold text-green-600 dark:text-green-400">R$ 0</p>
+         </div>
+        </div>
+       </div>
+       <div class="report-kpi-card">
+        <div class="flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+         </div>
+         <div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Vendas</p>
+          <p id="rpt-kpi-count" class="text-lg font-bold text-wine-900 dark:text-white">0</p>
+         </div>
+        </div>
+       </div>
+       <div class="report-kpi-card">
+        <div class="flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-purple-500/10 dark:bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+         </div>
+         <div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Ticket Médio</p>
+          <p id="rpt-kpi-avg" class="text-lg font-bold text-wine-900 dark:text-white">R$ 0</p>
+         </div>
+        </div>
+       </div>
+      </div>
+
+      <!-- Main Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+       <!-- Revenue Trend (large) -->
+       <div class="lg:col-span-2 glass-effect rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+         <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide">Receita vs Lucro</h3>
+         <span id="rpt-trend-label" class="text-xs text-gray-500 dark:text-gray-400">Período selecionado</span>
+        </div>
+        <div class="relative" style="height: 280px;">
+         <canvas id="rpt-chart-trend"></canvas>
+        </div>
+       </div>
+       <!-- Category Distribution -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide mb-4">Vendas por Categoria</h3>
+        <div class="relative flex items-center justify-center" style="height: 280px;">
+         <canvas id="rpt-chart-categories"></canvas>
+        </div>
+       </div>
+      </div>
+
+      <!-- Second Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+       <!-- Top Sellers Bar -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide mb-4">Top 10 Mais Vendidos</h3>
+        <div class="relative" style="height: 300px;">
+         <canvas id="rpt-chart-top-sellers"></canvas>
+        </div>
+       </div>
+       <!-- Margin Analysis -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide mb-4">Análise de Margem (%)</h3>
+        <div class="relative" style="height: 300px;">
+         <canvas id="rpt-chart-margin"></canvas>
+        </div>
+       </div>
+      </div>
+
+      <!-- Third Row: ABC + Payment Methods -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+       <!-- ABC Curve -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide mb-4">Curva ABC</h3>
+        <div class="grid grid-cols-3 gap-3 mb-4">
+         <div class="text-center p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+          <p id="rpt-abc-a" class="text-2xl font-bold text-green-600">0</p>
+          <p class="text-xs text-green-700 dark:text-green-400 font-medium">Classe A</p>
+         </div>
+         <div class="text-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <p id="rpt-abc-b" class="text-2xl font-bold text-amber-600">0</p>
+          <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Classe B</p>
+         </div>
+         <div class="text-center p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <p id="rpt-abc-c" class="text-2xl font-bold text-red-600">0</p>
+          <p class="text-xs text-red-700 dark:text-red-400 font-medium">Classe C</p>
+         </div>
+        </div>
+        <div class="relative" style="height: 220px;">
+         <canvas id="rpt-chart-abc"></canvas>
+        </div>
+       </div>
+       <!-- Payment Methods -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide mb-4">Métodos de Pagamento</h3>
+        <div class="relative flex items-center justify-center" style="height: 220px; margin-bottom: 16px;">
+         <canvas id="rpt-chart-payments"></canvas>
+        </div>
+        <div id="rpt-payment-legend" class="grid grid-cols-2 gap-2"></div>
+       </div>
+      </div>
+
+      <!-- Alerts Row: Expiring + Low Turnover -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+       <!-- Expiring Products -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+         <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide">Próximos da Validade</h3>
+         <span id="rpt-expiring-count" class="text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">0</span>
+        </div>
+        <div id="rpt-expiring-list" class="space-y-2 max-h-72 overflow-y-auto scrollbar-thin"></div>
+       </div>
+       <!-- Low Turnover -->
+       <div class="glass-effect rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+         <h3 class="text-sm font-semibold text-wine-900 dark:text-white uppercase tracking-wide">Capital Parado</h3>
+         <span id="rpt-stale-capital" class="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">R$ 0</span>
+        </div>
+        <div id="rpt-low-turnover-list" class="space-y-2 max-h-72 overflow-y-auto scrollbar-thin"></div>
+       </div>
+      </div>
+
+      <!-- Detailed Report Overlay -->
+      <div id="report-display" class="mt-4 glass-effect rounded-2xl p-6 shadow-lg hidden">
+       <div class="flex items-center justify-between mb-6">
+        <h3 id="report-title" class="text-lg font-bold text-wine-900 dark:text-white">Relatório</h3>
+        <button onclick="closeReport()" class="text-gray-500 hover:text-wine-600">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+       </div>
+       <div id="report-content"></div>
+      </div>
+     </div><!-- Alerts Page -->
+     <div id="page-alerts" class="page-content hidden">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Alertas</h2>
+       <p class="text-wine-600 dark:text-wine-400">Notificações importantes do sistema</p>
+      </div>
+      <div id="alerts-list" class="space-y-4">
+       <p class="text-gray-500 dark:text-gray-400 text-center py-12">Nenhum alerta no momento</p>
+      </div>
+     </div><!-- Suppliers Page -->
+     <div id="page-suppliers" class="page-content hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+       <div>
+        <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-1">Fornecedores</h2>
+        <p class="text-wine-600 dark:text-wine-400 text-sm">Gerencie seus fornecedores</p>
+       </div><button onclick="openSupplierModal()" class="btn-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Novo Fornecedor </button>
+      </div>
+      <!-- Search -->
+      <div class="mb-6">
+       <div class="relative">
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="supplier-search" oninput="renderSuppliers()" placeholder="Buscar fornecedor por nome, CNPJ, contato..." class="w-full pl-12 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+       </div>
+       <p id="supplier-count" class="text-xs text-gray-500 dark:text-gray-400 mt-2"></p>
+      </div>
+      <div id="suppliers-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+       <p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">Nenhum fornecedor cadastrado</p>
+      </div>
+     </div>
+    </div>
+   </main>
+  </div><!-- Product Modal -->
+  <div id="product-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+   <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90%] overflow-y-auto scrollbar-thin animate-slide-in">
+    <div class="p-6 border-b border-wine-200/30 dark:border-wine-800/30 flex items-center justify-between sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
+     <h3 id="product-modal-title" class="text-xl font-bold text-wine-900 dark:text-white">Novo Produto</h3><button onclick="closeProductModal()" class="text-gray-500 hover:text-wine-600 dark:hover:text-wine-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg></button>
+    </div>
+    <form id="product-form" onsubmit="saveProduct(event)" class="p-6 space-y-4">
+     <input type="hidden" id="product-id">
+     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="md:col-span-2">
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome do Produto *</label> <input type="text" id="product-name" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categoria *</label> <select id="product-category" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"> <option value="">Selecione</option> <option value="vinho-tinto">Vinho Tinto</option> <option value="vinho-branco">Vinho Branco</option> <option value="vinho-rose">Vinho Rosé</option> <option value="espumante">Espumante</option> <option value="champagne">Champagne</option> <option value="cerveja">Cerveja</option> <option value="destilado">Destilado</option> <option value="outros">Outros</option> </select>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Marca</label> <input type="text" id="product-brand" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Código Interno</label> <input type="text" id="product-code" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Código de Barras</label> <input type="text" id="product-barcode" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Volume (ml)</label> <input type="number" id="product-volume" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Teor Alcoólico (%)</label> <input type="number" id="product-alcohol" step="0.1" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preço de Custo (R$) *</label> <input type="number" id="product-cost" step="0.01" min="0" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" oninput="calculateMargin()">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preço de Venda (R$) *</label> <input type="number" id="product-price" step="0.01" min="0" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" oninput="calculateMargin()">
+      </div>
+      <div class="md:col-span-2 p-4 rounded-xl bg-wine-50 dark:bg-wine-900/30 border border-wine-200 dark:border-wine-700">
+       <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-wine-700 dark:text-wine-300">Margem de Lucro:</span> <span id="margin-display" class="text-lg font-bold text-accent-600 dark:text-accent-400">R$ 0,00 (0%)</span>
+       </div>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estoque Atual</label> <input type="number" id="product-stock" min="0" value="0" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estoque Mínimo</label> <input type="number" id="product-min-stock" min="0" value="5" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fornecedor</label> <select id="product-supplier" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"> <option value="">Selecione</option> </select>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Localização</label> <input type="text" id="product-location" placeholder="Ex: Prateleira A3" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      </div>
+     </div>
+     <div class="flex gap-3 pt-4">
+      <button type="button" onclick="closeProductModal()" class="flex-1 py-3 rounded-xl border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 font-semibold hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors"> Cancelar </button> <button type="submit" class="flex-1 btn-primary text-white py-3 rounded-xl font-semibold shadow-lg"> Salvar Produto </button>
+     </div>
+    </form>
+   </div>
+  </div><!-- Supplier Modal -->
+  <div id="supplier-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+   <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-lg animate-slide-in">
+    <div class="p-6 border-b border-wine-200/30 dark:border-wine-800/30 flex items-center justify-between">
+     <h3 id="supplier-modal-title" class="text-xl font-bold text-wine-900 dark:text-white">Novo Fornecedor</h3><button onclick="closeSupplierModal()" class="text-gray-500 hover:text-wine-600 dark:hover:text-wine-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg></button>
+    </div>
+    <form id="supplier-form" onsubmit="saveSupplier(event)" class="p-6 space-y-4">
+     <input type="hidden" id="supplier-id">
+     <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome da Empresa *</label> <input type="text" id="supplier-name" required class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+     </div>
+     <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">CNPJ</label> <input type="text" id="supplier-cnpj" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+     </div>
+     <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefone</label> <input type="tel" id="supplier-phone" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+     </div>
+     <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label> <input type="email" id="supplier-email" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+     </div>
+     <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contato</label> <input type="text" id="supplier-contact" class="w-full px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+     </div>
+     <div class="flex gap-3 pt-4">
+      <button type="button" onclick="closeSupplierModal()" class="flex-1 py-3 rounded-xl border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 font-semibold hover:bg-wine-50 dark:hover:bg-wine-900/50 transition-colors"> Cancelar </button> <button type="submit" class="flex-1 btn-primary text-white py-3 rounded-xl font-semibold shadow-lg"> Salvar </button>
+     </div>
+    </form>
+   </div>
+  </div><!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+  <script src="script.js"></script>
+</body>
+</html>
