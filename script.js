@@ -8,6 +8,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let supabaseClient;
 
+// Authentication State
+let currentUser = null; // { username, role: 'admin' | 'user' }
+
 // Application State
 let products = [];
 let suppliers = [];
@@ -15,7 +18,6 @@ let sales = [];
 let stockEntries = [];
 let expenses = [];
 let cart = [];
-let selectedPaymentMethod = '';
 let currentPage = 'dashboard';
 
 // Default Config
@@ -29,6 +31,125 @@ const defaultConfig = {
   surface_color: '#ffffff'
 };
 
+// ============================================
+// AUTHENTICATION SYSTEM
+// ============================================
+
+async function initUsersTable() {
+  if (!supabaseClient) return;
+  try {
+    const { data } = await supabaseClient.from('app_users').select('id').limit(1);
+    if (!data || data.length === 0) {
+      // Seed default users
+      await supabaseClient.from('app_users').upsert([
+        { username: 'admin', password: 'admin', role: 'admin', display_name: 'Administrador' },
+        { username: 'user', password: 'user', role: 'user', display_name: 'Funcionário' }
+      ], { onConflict: 'username' });
+    }
+  } catch (e) {
+    console.log('app_users table not available, using local auth fallback');
+  }
+}
+
+// Default local users (fallback when Supabase is unavailable)
+const LOCAL_USERS = [
+  { username: 'admin', password: 'admin', role: 'admin', display_name: 'Administrador' },
+  { username: 'user', password: 'user', role: 'user', display_name: 'Funcionário' }
+];
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value.trim().toLowerCase();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  errorEl.classList.add('hidden');
+
+  let authenticatedUser = null;
+
+  // Try Supabase first
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('app_users')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password)
+        .single();
+      if (data && !error) {
+        authenticatedUser = { username: data.username, role: data.role, display_name: data.display_name };
+      }
+    } catch (e) {
+      console.log('Supabase auth failed, trying local fallback');
+    }
+  }
+
+  // Fallback to local users
+  if (!authenticatedUser) {
+    const localUser = LOCAL_USERS.find(u => u.username === username && u.password === password);
+    if (localUser) {
+      authenticatedUser = { username: localUser.username, role: localUser.role, display_name: localUser.display_name };
+    }
+  }
+
+  if (authenticatedUser) {
+    currentUser = authenticatedUser;
+    localStorage.setItem('adega_current_user', JSON.stringify(currentUser));
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    applyRoleRestrictions();
+    await initApp();
+  } else {
+    errorEl.classList.remove('hidden');
+    document.getElementById('login-password').value = '';
+  }
+}
+
+function handleLogout() {
+  currentUser = null;
+  localStorage.removeItem('adega_current_user');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-form').reset();
+  document.getElementById('login-error').classList.add('hidden');
+}
+
+function isAdmin() {
+  return currentUser && currentUser.role === 'admin';
+}
+
+function applyRoleRestrictions() {
+  if (!currentUser) return;
+
+  // Update user display
+  const nameEl = document.getElementById('user-display-name');
+  const roleEl = document.getElementById('user-display-role');
+  if (nameEl) nameEl.textContent = currentUser.display_name || currentUser.username;
+  if (roleEl) roleEl.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Funcionário';
+
+  // Show/hide sidebar items based on role
+  document.querySelectorAll('[data-role]').forEach(el => {
+    const requiredRole = el.getAttribute('data-role');
+    if (requiredRole === 'admin' && !isAdmin()) {
+      el.classList.add('hidden');
+    } else {
+      el.classList.remove('hidden');
+    }
+  });
+
+  // Hide price-related elements for user role
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin() ? '' : 'none';
+  });
+
+  // Re-render content to apply price visibility
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderPosProducts === 'function') renderPosProducts();
+}
+
+// ============================================
+// APPLICATION INIT
+// ============================================
+
 // Initialize Application
 async function init() {
   try {
@@ -36,6 +157,30 @@ async function init() {
     if (window.supabase) {
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
+
+    // Initialize users table
+    await initUsersTable();
+
+    // Check for saved session
+    const savedUser = localStorage.getItem('adega_current_user');
+    if (savedUser) {
+      try {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        applyRoleRestrictions();
+        await initApp();
+      } catch (e) {
+        localStorage.removeItem('adega_current_user');
+      }
+    }
+  } catch (error) {
+    console.error('Pre-init error:', error);
+  }
+}
+
+async function initApp() {
+  try {
     
     // Initialize Element SDK
     if (window.elementSdk) {
@@ -88,7 +233,7 @@ async function init() {
     setupSalesChart();
     updateDashboard();
     updateAlerts();
-    navigateTo('dashboard');
+    navigateTo(isAdmin() ? 'dashboard' : 'products');
     
     // Check dark mode preference
     if (localStorage.getItem('darkMode') === 'true') {
@@ -102,12 +247,19 @@ async function init() {
     loadFromLocalStorage();
     setupSalesChart();
     updateDashboard();
-    navigateTo('dashboard');
+    navigateTo(isAdmin() ? 'dashboard' : 'products');
   }
 }
 
 // Navigation
+const ADMIN_ONLY_PAGES = ['dashboard', 'financial', 'reports'];
+
 function navigateTo(page) {
+  // Enforce role restriction
+  if (!isAdmin() && ADMIN_ONLY_PAGES.includes(page)) {
+    showToast('Acesso restrito ao administrador', 'warning');
+    return;
+  }
   currentPage = page;
   document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
   const pageEl = document.getElementById(`page-${page}`);
@@ -374,6 +526,7 @@ function renderProducts() {
                        p.stock <= p.min_stock ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600' : 
                        'bg-green-100 dark:bg-green-900/50 text-green-600';
     const categoryLabel = getCategoryLabel(p.category);
+    const showPrices = isAdmin();
     
     return `
       <div class="glass-effect rounded-2xl p-4 shadow-lg card-hover">
@@ -385,6 +538,7 @@ function renderProducts() {
         </div>
         <h4 class="font-bold text-gray-900 dark:text-white mb-1 truncate">${p.name}</h4>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">${categoryLabel}${p.brand ? ' • ' + p.brand : ''}</p>
+        ${showPrices ? `
         <div class="flex items-end justify-between">
           <div>
             <p class="text-xs text-gray-500 dark:text-gray-400">Venda</p>
@@ -394,7 +548,8 @@ function renderProducts() {
             <p class="text-xs text-gray-500 dark:text-gray-400">Margem</p>
             <p class="text-sm font-semibold ${margin > 0 ? 'text-green-600' : 'text-red-600'}">${marginPercent}%</p>
           </div>
-        </div>
+        </div>` : ''}
+        ${showPrices ? `
         <div class="flex gap-2 mt-4">
           <button onclick="openProductModal(products.find(p => p.id === '${p.id}'))" class="flex-1 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50">
             Editar
@@ -402,7 +557,7 @@ function renderProducts() {
           <button onclick="deleteProduct('${p.id}')" class="py-2 px-3 rounded-lg border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
-        </div>
+        </div>` : ''}
       </div>
     `;
   }).join('');
@@ -714,7 +869,7 @@ function renderRecentEntries() {
       </div>
       <div class="flex-1 min-w-0">
         <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${e.product_name}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">+${e.quantity} un • R$ ${e.cost.toFixed(2)}/un</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">+${e.quantity} un${isAdmin() ? ` • R$ ${e.cost.toFixed(2)}/un` : ''}</p>
       </div>
     </div>
   `).join('');
@@ -730,11 +885,12 @@ function renderPosProducts() {
     return;
   }
   
+  const showPrices = isAdmin();
   container.innerHTML = availableProducts.map(p => `
     <button onclick="addToCart('${p.id}')" class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-wine-200 dark:border-wine-700 hover:border-wine-400 dark:hover:border-wine-500 transition-colors text-left">
       <div class="w-8 h-8 flex items-center justify-center text-wine-700 dark:text-wine-300">${getCategoryIcon(p.category)}</div>
       <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${p.name}</p>
-      <p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>
+      ${showPrices ? `<p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>` : ''}
       <p class="text-xs text-gray-500 dark:text-gray-400">${p.stock} un</p>
     </button>
   `).join('');
@@ -757,11 +913,12 @@ function filterPosProducts() {
     return;
   }
   
+  const showPrices = isAdmin();
   container.innerHTML = filtered.map(p => `
     <button onclick="addToCart('${p.id}')" class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-wine-200 dark:border-wine-700 hover:border-wine-400 dark:hover:border-wine-500 transition-colors text-left">
       <div class="w-8 h-8 flex items-center justify-center text-wine-700 dark:text-wine-300">${getCategoryIcon(p.category)}</div>
       <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${p.name}</p>
-      <p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>
+      ${showPrices ? `<p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>` : ''}
       <p class="text-xs text-gray-500 dark:text-gray-400">${p.stock} un</p>
     </button>
   `).join('');
@@ -820,16 +977,17 @@ function renderCart() {
   const container = document.getElementById('cart-items');
   
   if (cart.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">Carrinho vazio</p>';
+    container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">Nenhum item adicionado</p>';
     updateCartTotal();
     return;
   }
   
+  const showPrices = isAdmin();
   container.innerHTML = cart.map(item => `
     <div class="flex items-center gap-3 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
       <div class="flex-1 min-w-0">
         <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${item.name}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">R$ ${item.price.toFixed(2)}</p>
+        ${showPrices ? `<p class="text-xs text-gray-500 dark:text-gray-400">R$ ${item.price.toFixed(2)}</p>` : ''}
       </div>
       <div class="flex items-center gap-1">
         <button onclick="updateCartQuantity('${item.product_id}', -1)" class="w-7 h-7 rounded-lg bg-wine-100 dark:bg-wine-900/50 text-wine-600 flex items-center justify-center hover:bg-wine-200 dark:hover:bg-wine-800">-</button>
@@ -850,33 +1008,28 @@ function updateCartTotal() {
   const discount = parseFloat(document.getElementById('cart-discount').value) || 0;
   const total = Math.max(0, subtotal - discount);
   
-  document.getElementById('cart-subtotal').textContent = `R$ ${subtotal.toFixed(2)}`;
-  document.getElementById('cart-total').textContent = `R$ ${total.toFixed(2)}`;
-}
-
-function setPaymentMethod(method) {
-  selectedPaymentMethod = method;
-  const labels = { 'dinheiro': 'Dinheiro', 'cartao': 'Cartão', 'pix': 'PIX', 'fiado': 'Fiado' };
-  document.getElementById('selected-payment').textContent = labels[method];
-  document.getElementById('payment-method-display').classList.remove('hidden');
+  if (isAdmin()) {
+    document.getElementById('cart-subtotal').textContent = `R$ ${subtotal.toFixed(2)}`;
+    document.getElementById('cart-total').textContent = `R$ ${total.toFixed(2)}`;
+  } else {
+    document.getElementById('cart-subtotal').textContent = '---';
+    document.getElementById('cart-total').textContent = '---';
+  }
 }
 
 function clearCart() {
   cart = [];
-  selectedPaymentMethod = '';
   document.getElementById('cart-discount').value = 0;
-  document.getElementById('payment-method-display').classList.add('hidden');
+  const clientInput = document.getElementById('quote-client-name');
+  const notesInput = document.getElementById('quote-notes');
+  if (clientInput) clientInput.value = '';
+  if (notesInput) notesInput.value = '';
   renderCart();
 }
 
-async function finalizeSale() {
+async function saveQuote() {
   if (cart.length === 0) {
-    showToast('Carrinho vazio', 'warning');
-    return;
-  }
-  
-  if (!selectedPaymentMethod) {
-    showToast('Selecione forma de pagamento', 'warning');
+    showToast('Adicione itens ao orçamento', 'warning');
     return;
   }
   
@@ -885,9 +1038,14 @@ async function finalizeSale() {
   const total = Math.max(0, subtotal - discount);
   const totalCost = cart.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
   const profit = total - totalCost;
+  const clientName = (document.getElementById('quote-client-name')?.value || '').trim();
+  const notes = (document.getElementById('quote-notes')?.value || '').trim();
   
   const sale = {
     id: crypto.randomUUID(),
+    type: 'orcamento',
+    client_name: clientName,
+    notes: notes,
     items: cart.map(item => ({
       product_id: item.product_id,
       name: item.name,
@@ -899,7 +1057,6 @@ async function finalizeSale() {
     discount,
     total,
     profit,
-    payment_method: selectedPaymentMethod,
     created_at: new Date().toISOString()
   };
   
@@ -926,7 +1083,7 @@ async function finalizeSale() {
   renderPosProducts();
   updateDashboard();
   updateAlerts();
-  showToast(`Venda de R$ ${total.toFixed(2)} finalizada!`);
+  showToast(isAdmin() ? `Orçamento de R$ ${total.toFixed(2)} salvo com sucesso!` : 'Orçamento salvo com sucesso!');
 }
 
 // Financial Functions
@@ -964,13 +1121,13 @@ function updateFinancials() {
   const revenue = monthSales.reduce((sum, s) => sum + s.total, 0);
   const expenseTotal = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const profit = monthSales.reduce((sum, s) => sum + s.profit, 0) - expenseTotal;
-  const credit = monthSales.filter(s => s.payment_method === 'fiado').reduce((sum, s) => sum + s.total, 0);
+  const quoteCount = monthSales.length;
   
   document.getElementById('financial-revenue').textContent = `R$ ${revenue.toFixed(2)}`;
   document.getElementById('financial-expenses').textContent = `R$ ${expenseTotal.toFixed(2)}`;
   document.getElementById('financial-profit').textContent = `R$ ${profit.toFixed(2)}`;
   document.getElementById('financial-profit').className = `text-2xl font-bold ${profit >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`;
-  document.getElementById('financial-credit').textContent = `R$ ${credit.toFixed(2)}`;
+  document.getElementById('financial-credit').textContent = quoteCount;
   
   renderRecentTransactions();
 }
@@ -979,7 +1136,7 @@ function renderRecentTransactions() {
   const container = document.getElementById('recent-transactions');
   
   const transactions = [
-    ...sales.slice(0, 5).map(s => ({ type: 'sale', amount: s.total, description: `Venda ${s.payment_method}`, date: s.created_at })),
+    ...sales.slice(0, 5).map(s => ({ type: 'sale', amount: s.total, description: `Orçamento${s.client_name ? ' - ' + s.client_name : ''}`, date: s.created_at })),
     ...expenses.slice(0, 5).map(e => ({ type: 'expense', amount: e.amount, description: e.description, date: e.created_at }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
   
@@ -1083,7 +1240,7 @@ function renderTopProducts() {
     .slice(0, 5);
   
   if (topProducts.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">Nenhum produto vendido ainda</p>';
+    container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">Nenhum produto com orçamento ainda</p>';
     return;
   }
   
@@ -1110,7 +1267,7 @@ function renderRecentActivity() {
     ...sales.slice(0, 3).map(s => ({
       type: 'sale',
       icon: '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-      text: `Venda de R$ ${s.total.toFixed(2)}`,
+      text: `Orçamento de R$ ${s.total.toFixed(2)}${s.client_name ? ' - ' + s.client_name : ''}`,
       date: s.created_at
     })),
     ...stockEntries.slice(0, 3).map(e => ({
@@ -1289,9 +1446,6 @@ function refreshReports() {
 
   // --- ABC Curve ---
   renderABCChart(filtered, c);
-
-  // --- Payment Methods ---
-  renderPaymentChart(filtered, c);
 
   // --- Expiring Products List ---
   renderExpiringList();
@@ -1680,68 +1834,6 @@ function renderABCChart(filtered, c) {
   });
 }
 
-// ---- Payment Methods Donut ----
-function renderPaymentChart(filtered, c) {
-  const methods = {};
-  filtered.forEach(s => {
-    const m = s.payment_method || 'Outros';
-    methods[m] = (methods[m] || 0) + s.total;
-  });
-
-  const methodLabels = { 'dinheiro': 'Dinheiro', 'cartao': 'Cartão', 'pix': 'PIX', 'fiado': 'Fiado' };
-  const labels = Object.keys(methods).map(k => methodLabels[k] || k);
-  const data = Object.values(methods);
-  const colors = [c.green, c.blue, c.accent, c.red, c.purple, c.cyan].slice(0, labels.length);
-
-  makeChart('rpt-chart-payments', {
-    type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '60%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: c.surface,
-          titleColor: c.text,
-          bodyColor: c.textMuted,
-          borderColor: c.grid,
-          borderWidth: 1,
-          padding: 10,
-          titleFont: { family: 'Inter', weight: '600' },
-          bodyFont: { family: 'Inter' },
-          callbacks: {
-            label: ctx => {
-              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-              return `R$ ${ctx.raw.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${pct}%)`;
-            }
-          }
-        }
-      }
-    }
-  });
-
-  // Custom legend
-  const legendEl = document.getElementById('rpt-payment-legend');
-  if (legendEl) {
-    const total = data.reduce((a, b) => a + b, 0);
-    legendEl.innerHTML = labels.map((l, i) => {
-      const pct = total > 0 ? ((data[i] / total) * 100).toFixed(0) : 0;
-      return `
-        <div class="flex items-center gap-2 text-sm">
-          <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${colors[i]}"></span>
-          <span class="text-gray-600 dark:text-gray-400 flex-1">${l}</span>
-          <span class="font-medium text-gray-900 dark:text-white">${pct}%</span>
-        </div>`;
-    }).join('');
-  }
-}
-
 // ---- Expiring Products List ----
 function renderExpiringList() {
   const expiringProducts = stockEntries
@@ -1869,7 +1961,7 @@ function generateTopSellersReport() {
     });
   });
   const sorted = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10);
-  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhuma venda registrada</p>';
+  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhum orçamento registrado</p>';
   const maxQty = sorted[0].qty;
   return `<div class="space-y-3">${sorted.map((p, i) => `
     <div class="flex items-center gap-3">
@@ -1895,7 +1987,7 @@ function generateBestMarginReport() {
     <th class="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-400">Margem</th>
     </tr></thead><tbody>${sorted.map(p => `<tr class="border-b border-wine-100 dark:border-wine-800">
       <td class="py-3 text-gray-900 dark:text-white">${p.name}</td>
-      <td class="py-3 text-right text-gray-600 dark:text-gray-400">R$ ${p.cost.toFixed(2)}</td>
+      <td class="py-3 text-right text-gray-600 dark:text-gray-400">${isAdmin() ? `R$ ${p.cost.toFixed(2)}` : '---'}</td>
       <td class="py-3 text-right text-gray-600 dark:text-gray-400">R$ ${p.price.toFixed(2)}</td>
       <td class="py-3 text-right font-bold ${p.marginPercent >= 30 ? 'text-green-600' : p.marginPercent >= 15 ? 'text-amber-600' : 'text-red-600'}">${p.marginPercent.toFixed(0)}%</td>
     </tr>`).join('')}</tbody></table></div>`;
@@ -1916,7 +2008,7 @@ function generateABCReport() {
   const productRevenue = {};
   sales.forEach(sale => { sale.items.forEach(item => { productRevenue[item.product_id] = (productRevenue[item.product_id] || 0) + (item.price * item.quantity); }); });
   const sorted = Object.entries(productRevenue).map(([id, revenue]) => { const product = products.find(p => p.id === id); return product ? { ...product, revenue } : null; }).filter(Boolean).sort((a, b) => b.revenue - a.revenue);
-  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhuma venda registrada para análise</p>';
+  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhum orçamento registrado para análise</p>';
   const totalRevenue = sorted.reduce((sum, p) => sum + p.revenue, 0);
   let accumulated = 0;
   const classified = sorted.map(p => { accumulated += p.revenue; const percent = (accumulated / totalRevenue) * 100; return { ...p, percent, classe: percent <= 80 ? 'A' : percent <= 95 ? 'B' : 'C' }; });
@@ -1937,13 +2029,13 @@ function generateProfitReport() {
   const monthlyData = {};
   filtered.forEach(s => { const date = new Date(s.created_at); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; if (!monthlyData[key]) monthlyData[key] = { revenue: 0, profit: 0, count: 0 }; monthlyData[key].revenue += s.total; monthlyData[key].profit += s.profit; monthlyData[key].count++; });
   const sorted = Object.entries(monthlyData).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12);
-  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhuma venda registrada para análise</p>';
+  if (sorted.length === 0) return '<p class="text-gray-500 dark:text-gray-400">Nenhum orçamento registrado para análise</p>';
   const maxProfit = Math.max(...sorted.map(([_, d]) => d.profit));
   return `<div class="space-y-4">${sorted.map(([month, data]) => {
     const [year, m] = month.split('-');
     const monthName = new Date(year, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const barWidth = maxProfit > 0 ? (data.profit / maxProfit) * 100 : 0;
-    return `<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">${monthName}</span><span class="text-sm font-bold ${data.profit >= 0 ? 'text-green-600' : 'text-red-600'}">R$ ${data.profit.toFixed(2)}</span></div><div class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full"><div class="h-4 ${data.profit >= 0 ? 'progress-bar' : 'bg-red-500'} rounded-full transition-all" style="width: ${Math.abs(barWidth)}%"></div></div><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${data.count} vendas - Receita: R$ ${data.revenue.toFixed(2)}</p></div>`;
+    return `<div><div class="flex items-center justify-between mb-1"><span class="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">${monthName}</span><span class="text-sm font-bold ${data.profit >= 0 ? 'text-green-600' : 'text-red-600'}">R$ ${data.profit.toFixed(2)}</span></div><div class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full"><div class="h-4 ${data.profit >= 0 ? 'progress-bar' : 'bg-red-500'} rounded-full transition-all" style="width: ${Math.abs(barWidth)}%"></div></div><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${data.count} orçamentos - Receita: R$ ${data.revenue.toFixed(2)}</p></div>`;
   }).join('')}</div>`;
 }
 
