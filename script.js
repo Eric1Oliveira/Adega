@@ -17,8 +17,21 @@ let suppliers = [];
 let sales = [];
 let stockEntries = [];
 let expenses = [];
+let stockHistory = [];
 let cart = [];
 let currentPage = 'dashboard';
+
+// Shift System
+let shiftConfig = {
+  shift1_name: 'Manhã',
+  shift1_start: '06:00',
+  shift1_end: '14:00',
+  shift2_name: 'Noite',
+  shift2_start: '14:00',
+  shift2_end: '23:59'
+};
+let shiftUpdateInterval = null;
+let reportShiftFilter = 'all'; // 'all' | 'shift1' | 'shift2'
 
 // Default Config
 const defaultConfig = {
@@ -35,19 +48,33 @@ const defaultConfig = {
 // AUTHENTICATION SYSTEM
 // ============================================
 
+const _tableAvailable = {}; // cache: table name -> true/false
+
+async function isTableAvailable(table) {
+  if (!supabaseClient) return false;
+  if (table in _tableAvailable) return _tableAvailable[table];
+  try {
+    const { error } = await supabaseClient.from(table).select('id').limit(1);
+    _tableAvailable[table] = !error;
+  } catch (e) {
+    _tableAvailable[table] = false;
+  }
+  return _tableAvailable[table];
+}
+
 async function initUsersTable() {
   if (!supabaseClient) return;
+  if (!(await isTableAvailable('app_users'))) return;
   try {
     const { data } = await supabaseClient.from('app_users').select('id').limit(1);
     if (!data || data.length === 0) {
-      // Seed default users
       await supabaseClient.from('app_users').upsert([
         { username: 'admin', password: 'admin', role: 'admin', display_name: 'Administrador' },
         { username: 'user', password: 'user', role: 'user', display_name: 'Funcionário' }
       ], { onConflict: 'username' });
     }
   } catch (e) {
-    console.log('app_users table not available, using local auth fallback');
+    // silently fall back to local auth
   }
 }
 
@@ -66,8 +93,8 @@ async function handleLogin(e) {
 
   let authenticatedUser = null;
 
-  // Try Supabase first
-  if (supabaseClient) {
+  // Try Supabase first (only if app_users table exists)
+  if (supabaseClient && _tableAvailable['app_users']) {
     try {
       const { data, error } = await supabaseClient
         .from('app_users')
@@ -230,9 +257,11 @@ async function initApp() {
     await loadAllData();
     
     // Setup UI
+    await loadShiftConfig();
     setupSalesChart();
     updateDashboard();
     updateAlerts();
+    updateReportShiftLabels();
     navigateTo(isAdmin() ? 'dashboard' : 'products');
     
     // Check dark mode preference
@@ -243,8 +272,13 @@ async function initApp() {
     
   } catch (error) {
     console.error('Initialization error:', error);
-    showToast('Erro ao inicializar o sistema', 'error');
-    loadFromLocalStorage();
+    showToast('Erro ao conectar com o banco de dados. Verifique sua conexão.', 'error');
+    // Still try to render whatever we have (empty state)
+    renderProducts();
+    renderSuppliers();
+    updateProductSelects();
+    updateSupplierSelects();
+    renderPosProducts();
     setupSalesChart();
     updateDashboard();
     navigateTo(isAdmin() ? 'dashboard' : 'products');
@@ -252,7 +286,7 @@ async function initApp() {
 }
 
 // Navigation
-const ADMIN_ONLY_PAGES = ['dashboard', 'financial', 'reports'];
+const ADMIN_ONLY_PAGES = ['dashboard', 'financial', 'reports', 'settings', 'suppliers'];
 
 function navigateTo(page) {
   // Enforce role restriction
@@ -284,6 +318,9 @@ function navigateTo(page) {
   if (page === 'alerts') updateAlerts();
   if (page === 'financial') updateFinancials();
   if (page === 'reports') refreshReports();
+  if (page === 'sales') { renderQuoteHistory(); updateShiftIndicator(); }
+  if (page === 'quotes') renderQuoteHistory();
+  if (page === 'settings') refreshSettingsPage();
 }
 
 function toggleSidebar() {
@@ -316,43 +353,95 @@ function updateThemeUI() {
 
 // Initialize Database Tables
 async function initializeDatabase() {
+  if (!supabaseClient) {
+    showToast('Erro: conexão com banco de dados não disponível', 'error');
+    return;
+  }
   try {
-    if (!supabaseClient) return;
     const { error } = await supabaseClient.from('products').select('id').limit(1);
     if (error && (error.code === '42P01' || error.message.includes('relation'))) {
-      showToast('Usando localStorage - configure Supabase SQL quando pronto', 'info');
+      showToast('Tabelas não encontradas no Supabase. Crie as tabelas necessárias.', 'error');
     }
   } catch (e) {
-    loadFromLocalStorage();
+    console.error('Database init check failed:', e);
+    showToast('Erro ao verificar banco de dados', 'error');
   }
 }
 
-// Load from localStorage as fallback
-function loadFromLocalStorage() {
-  products = JSON.parse(localStorage.getItem('adega_products') || '[]');
-  suppliers = JSON.parse(localStorage.getItem('adega_suppliers') || '[]');
-  sales = JSON.parse(localStorage.getItem('adega_sales') || '[]');
-  stockEntries = JSON.parse(localStorage.getItem('adega_stock_entries') || '[]');
-  expenses = JSON.parse(localStorage.getItem('adega_expenses') || '[]');
+// ============================================
+// DATABASE LAYER - Supabase is the ONLY source of truth
+// No localStorage for data. Everything comes from the DB.
+// ============================================
+
+// Helper: fetch a full table from Supabase
+async function dbFetchAll(table, orderBy = 'created_at', ascending = false) {
+  if (!supabaseClient) return [];
+  const { data, error } = await supabaseClient
+    .from(table)
+    .select('*')
+    .order(orderBy, { ascending });
+  if (error) {
+    console.error(`DB fetch ${table} error:`, error);
+    return [];
+  }
+  return data || [];
 }
 
-// Save to localStorage
-function saveToLocalStorage() {
-  localStorage.setItem('adega_products', JSON.stringify(products));
-  localStorage.setItem('adega_suppliers', JSON.stringify(suppliers));
-  localStorage.setItem('adega_sales', JSON.stringify(sales));
-  localStorage.setItem('adega_stock_entries', JSON.stringify(stockEntries));
-  localStorage.setItem('adega_expenses', JSON.stringify(expenses));
+// Helper: insert a row into Supabase - throws on failure
+async function dbInsert(table, row) {
+  if (!supabaseClient) throw new Error('Sem conexão com o banco de dados');
+  const { data, error } = await supabaseClient.from(table).insert(row).select();
+  if (error) throw error;
+  return data;
 }
 
-// Load all data
+// Helper: update a row in Supabase - throws on failure
+async function dbUpdate(table, id, updates) {
+  if (!supabaseClient) throw new Error('Sem conexão com o banco de dados');
+  const { data, error } = await supabaseClient.from(table).update(updates).eq('id', id).select();
+  if (error) throw error;
+  return data;
+}
+
+// Helper: delete a row from Supabase - throws on failure
+async function dbDelete(table, id) {
+  if (!supabaseClient) throw new Error('Sem conexão com o banco de dados');
+  const { error } = await supabaseClient.from(table).delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Reload ALL data from Supabase and refresh the UI
 async function loadAllData() {
-  loadFromLocalStorage();
+  try {
+    const [p, s, sa, se, e, sh] = await Promise.all([
+      dbFetchAll('products', 'name', true),
+      dbFetchAll('suppliers', 'name', true),
+      dbFetchAll('sales', 'created_at', false),
+      dbFetchAll('stock_entries', 'created_at', false),
+      dbFetchAll('expenses', 'created_at', false),
+      isTableAvailable('stock_history') ? dbFetchAll('stock_history', 'created_at', false) : Promise.resolve([])
+    ]);
+
+    products = p;
+    suppliers = s;
+    sales = sa;
+    stockEntries = se;
+    expenses = e;
+    stockHistory = sh;
+
+    console.log(`DB loaded: ${products.length} products, ${suppliers.length} suppliers, ${sales.length} sales, ${stockEntries.length} entries, ${expenses.length} expenses, ${stockHistory.length} stock history`);
+  } catch (err) {
+    console.error('Failed to load data from Supabase:', err);
+    showToast('Erro ao carregar dados do banco de dados', 'error');
+  }
+
+  // Refresh all UI
   renderProducts();
   renderSuppliers();
   updateProductSelects();
   updateSupplierSelects();
   renderPosProducts();
+  renderRecentEntries();
 }
 // Toast Notifications
 function showToast(message, type = 'success') {
@@ -412,9 +501,9 @@ async function saveProduct(e) {
   const productData = {
     name: document.getElementById('product-name').value,
     category: document.getElementById('product-category').value,
-    brand: document.getElementById('product-brand').value,
-    code: document.getElementById('product-code').value,
-    barcode: document.getElementById('product-barcode').value,
+    brand: document.getElementById('product-brand').value || null,
+    code: document.getElementById('product-code').value || null,
+    barcode: document.getElementById('product-barcode').value || null,
     volume: parseInt(document.getElementById('product-volume').value) || null,
     alcohol: parseFloat(document.getElementById('product-alcohol').value) || null,
     cost: parseFloat(document.getElementById('product-cost').value),
@@ -422,7 +511,7 @@ async function saveProduct(e) {
     stock: parseInt(document.getElementById('product-stock').value) || 0,
     min_stock: parseInt(document.getElementById('product-min-stock').value) || 5,
     supplier_id: document.getElementById('product-supplier').value || null,
-    location: document.getElementById('product-location').value,
+    location: document.getElementById('product-location').value || null,
     updated_at: new Date().toISOString()
   };
   
@@ -430,42 +519,23 @@ async function saveProduct(e) {
   
   try {
     if (existingId) {
-      // Update
-      const { error } = await supabaseClient.from('products').update(productData).eq('id', existingId);
-      if (error) throw error;
-      
-      const idx = products.findIndex(p => p.id === existingId);
-      if (idx !== -1) products[idx] = { ...products[idx], ...productData };
-    } else {
-      // Create
-      productData.id = crypto.randomUUID();
-      productData.created_at = new Date().toISOString();
-      
-      const { error } = await supabaseClient.from('products').insert(productData);
-      if (error) throw error;
-      
-      products.push(productData);
-    }
-  } catch (e) {
-    // Fallback to localStorage
-    if (existingId) {
-      const idx = products.findIndex(p => p.id === existingId);
-      if (idx !== -1) products[idx] = { ...products[idx], ...productData };
+      await dbUpdate('products', existingId, productData);
     } else {
       productData.id = crypto.randomUUID();
       productData.created_at = new Date().toISOString();
-      products.push(productData);
+      await dbInsert('products', productData);
     }
+    
+    // Reload from DB to ensure consistency
+    await loadAllData();
+    updateDashboard();
+    updateAlerts();
+    closeProductModal();
+    showToast(existingId ? 'Produto atualizado!' : 'Produto cadastrado!');
+  } catch (err) {
+    console.error('Erro ao salvar produto:', err);
+    showToast('Erro ao salvar produto no banco de dados: ' + (err.message || err), 'error');
   }
-  
-  saveToLocalStorage();
-  renderProducts();
-  updateProductSelects();
-  renderPosProducts();
-  updateDashboard();
-  updateAlerts();
-  closeProductModal();
-  showToast(existingId ? 'Produto atualizado!' : 'Produto cadastrado!');
 }
 
 async function deleteProduct(id) {
@@ -486,17 +556,15 @@ async function deleteProduct(id) {
 
 async function confirmDeleteProduct(id) {
   try {
-    await supabaseClient.from('products').delete().eq('id', id);
-  } catch (e) {}
-  
-  products = products.filter(p => p.id !== id);
-  saveToLocalStorage();
-  renderProducts();
-  updateProductSelects();
-  renderPosProducts();
-  updateDashboard();
-  updateAlerts();
-  showToast('Produto excluído!');
+    await dbDelete('products', id);
+    await loadAllData();
+    updateDashboard();
+    updateAlerts();
+    showToast('Produto excluído!');
+  } catch (err) {
+    console.error('Erro ao excluir produto:', err);
+    showToast('Erro ao excluir produto do banco de dados', 'error');
+  }
 }
 
 function calculateMargin() {
@@ -519,6 +587,7 @@ function renderProducts() {
     return;
   }
   
+  const admin = isAdmin();
   grid.innerHTML = products.map(p => {
     const margin = p.price - p.cost;
     const marginPercent = p.cost > 0 ? ((margin / p.cost) * 100).toFixed(0) : 0;
@@ -526,20 +595,24 @@ function renderProducts() {
                        p.stock <= p.min_stock ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600' : 
                        'bg-green-100 dark:bg-green-900/50 text-green-600';
     const categoryLabel = getCategoryLabel(p.category);
-    const showPrices = isAdmin();
+    const displayCode = p.code || p.id.substring(0, 6).toUpperCase();
     
     return `
       <div class="glass-effect rounded-2xl p-4 shadow-lg card-hover">
         <div class="flex items-start justify-between mb-3">
-          <div class="w-12 h-12 rounded-xl bg-wine-900 dark:bg-accent-500/20 flex items-center justify-center text-white dark:text-accent-400">
-            ${getCategoryIcon(p.category)}
+          <div class="flex items-center gap-2">
+            <div class="w-10 h-10 rounded-xl bg-wine-900 dark:bg-accent-500/20 flex items-center justify-center text-white dark:text-accent-400">
+              ${getCategoryIcon(p.category)}
+            </div>
+            <span class="text-[10px] font-mono font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded select-all" title="Código p/ busca no caixa">#${displayCode}</span>
           </div>
           <span class="${stockStatus} text-xs font-medium px-2 py-1 rounded-full">${p.stock} un</span>
         </div>
         <h4 class="font-bold text-gray-900 dark:text-white mb-1 truncate">${p.name}</h4>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">${categoryLabel}${p.brand ? ' • ' + p.brand : ''}</p>
-        ${showPrices ? `
-        <div class="flex items-end justify-between">
+        
+        ${admin ? `
+        <div class="flex items-end justify-between mb-3">
           <div>
             <p class="text-xs text-gray-500 dark:text-gray-400">Venda</p>
             <p class="text-lg font-bold text-accent-600 dark:text-accent-400">R$ ${p.price.toFixed(2)}</p>
@@ -549,15 +622,19 @@ function renderProducts() {
             <p class="text-sm font-semibold ${margin > 0 ? 'text-green-600' : 'text-red-600'}">${marginPercent}%</p>
           </div>
         </div>` : ''}
-        ${showPrices ? `
-        <div class="flex gap-2 mt-4">
+        <div class="flex gap-2">
+          <button onclick="openQuickStockModal('${p.id}')" class="flex-1 py-2 rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/30 flex items-center justify-center gap-1.5 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            Estoque
+          </button>
           <button onclick="openProductModal(products.find(p => p.id === '${p.id}'))" class="flex-1 py-2 rounded-lg border border-wine-300 dark:border-wine-600 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-900/50">
             Editar
           </button>
+          ${admin ? `
           <button onclick="deleteProduct('${p.id}')" class="py-2 px-3 rounded-lg border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </div>` : ''}
+          </button>` : ''}
+        </div>
       </div>
     `;
   }).join('');
@@ -568,12 +645,19 @@ function filterProducts() {
   const category = document.getElementById('category-filter').value;
   const stockFilter = document.getElementById('stock-filter').value;
   
+  // If no filters, just render all
+  if (!search && !category && !stockFilter) {
+    renderProducts();
+    return;
+  }
+  
   const filtered = products.filter(p => {
     const matchesSearch = !search || 
       p.name.toLowerCase().includes(search) || 
       (p.code && p.code.toLowerCase().includes(search)) ||
       (p.barcode && p.barcode.includes(search)) ||
-      (p.brand && p.brand.toLowerCase().includes(search));
+      (p.brand && p.brand.toLowerCase().includes(search)) ||
+      p.id.toLowerCase().includes(search);
     
     const matchesCategory = !category || p.category === category;
     
@@ -596,6 +680,158 @@ function filterProducts() {
   products = filtered;
   renderProducts();
   products = originalProducts;
+}
+
+function clearProductFilters() {
+  document.getElementById('product-search').value = '';
+  document.getElementById('category-filter').value = '';
+  document.getElementById('stock-filter').value = '';
+  renderProducts();
+}
+
+// Stock adjustment history (Supabase)
+function getStockHistory(productId) {
+  return stockHistory.filter(h => h.product_id === productId).slice(0, 20);
+}
+
+async function addStockHistoryEntry(productId, productName, oldStock, newStock, user) {
+  const entry = {
+    id: crypto.randomUUID(),
+    product_id: productId,
+    product_name: productName,
+    old_stock: oldStock,
+    new_stock: newStock,
+    diff: newStock - oldStock,
+    user_name: user || 'Sistema',
+    created_at: new Date().toISOString()
+  };
+  try {
+    await dbInsert('stock_history', entry);
+    stockHistory.unshift(entry);
+  } catch (err) {
+    console.error('Erro ao salvar histórico de estoque:', err);
+    showToast('Erro ao salvar histórico — verifique se a tabela stock_history existe no Supabase', 'error');
+  }
+}
+
+async function clearStockHistory(productId) {
+  try {
+    const entries = stockHistory.filter(h => h.product_id === productId);
+    for (const e of entries) {
+      await dbDelete('stock_history', e.id);
+    }
+    stockHistory = stockHistory.filter(h => h.product_id !== productId);
+    renderQsHistory(productId);
+  } catch (err) {
+    console.error('Erro ao limpar histórico:', err);
+    showToast('Erro ao limpar histórico', 'error');
+  }
+}
+
+function renderQsHistory(productId) {
+  const section = document.getElementById('qs-history-section');
+  const list = document.getElementById('qs-history-list');
+  const history = getStockHistory(productId);
+  
+  if (history.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  
+  section.classList.remove('hidden');
+  list.innerHTML = history.map(h => {
+    const d = new Date(h.created_at);
+    const timeStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const isPositive = h.diff > 0;
+    const diffColor = h.diff === 0 ? 'text-gray-400' : isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400';
+    const diffIcon = isPositive
+      ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>'
+      : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>';
+    const diffBg = isPositive ? 'bg-emerald-500/10' : h.diff < 0 ? 'bg-red-500/10' : 'bg-gray-100 dark:bg-gray-800';
+    
+    return `
+      <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl ${diffBg}">
+        <div class="${diffColor} flex-shrink-0">${diffIcon}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] text-gray-500 dark:text-gray-400">${timeStr} · ${h.user_name}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <span class="text-[11px] text-gray-400">${h.old_stock} →</span>
+          <span class="text-xs font-bold ${diffColor}">${h.new_stock}</span>
+        </div>
+        <span class="text-[10px] font-bold ${diffColor} flex-shrink-0">${h.diff > 0 ? '+' : ''}${h.diff}</span>
+      </div>`;
+  }).join('');
+}
+
+let _qsCurrentStock = 0;
+
+function openQuickStockModal(productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+  
+  _qsCurrentStock = product.stock;
+  document.getElementById('qs-product-id').value = product.id;
+  document.getElementById('qs-product-name').textContent = product.name;
+  document.getElementById('qs-current-stock').textContent = product.stock;
+  const input = document.getElementById('qs-new-stock');
+  input.value = product.stock;
+  document.getElementById('quick-stock-modal').classList.remove('hidden');
+  qsUpdatePreview();
+  renderQsHistory(product.id);
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+function closeQuickStockModal() {
+  document.getElementById('quick-stock-modal').classList.add('hidden');
+}
+
+function qsAdjust(delta) {
+  const input = document.getElementById('qs-new-stock');
+  const val = parseInt(input.value) || 0;
+  input.value = Math.max(0, val + delta);
+  qsUpdatePreview();
+}
+
+function qsUpdatePreview() {
+  const val = parseInt(document.getElementById('qs-new-stock').value) || 0;
+  const diff = val - _qsCurrentStock;
+  const el = document.getElementById('qs-diff');
+  if (!el) return;
+  if (diff === 0) {
+    el.innerHTML = '<span class="text-xs text-gray-400">Sem alteração</span>';
+  } else if (diff > 0) {
+    el.innerHTML = `<span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">+${diff} unidade${diff !== 1 ? 's' : ''}</span>`;
+  } else {
+    el.innerHTML = `<span class="text-xs font-bold text-red-500 dark:text-red-400">${diff} unidade${diff !== -1 ? 's' : ''}</span>`;
+  }
+}
+
+async function saveQuickStock() {
+  const productId = document.getElementById('qs-product-id').value;
+  const newStock = parseInt(document.getElementById('qs-new-stock').value);
+  if (isNaN(newStock) || newStock < 0) {
+    showToast('Valor de estoque inválido', 'warning');
+    return;
+  }
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+  
+  try {
+    await dbUpdate('products', productId, { stock: newStock, updated_at: new Date().toISOString() });
+    const oldStock = product.stock;
+    await addStockHistoryEntry(productId, product.name, oldStock, newStock, currentUser?.display_name || currentUser?.username || 'Sistema');
+    product.stock = newStock;
+    closeQuickStockModal();
+    renderProducts();
+    filterProducts();
+    updateAlerts();
+    updateDashboard();
+    const diff = newStock - oldStock;
+    showToast(`${product.name}: estoque ${diff >= 0 ? '+' : ''}${diff} → ${newStock} un`, diff >= 0 ? 'success' : 'warning');
+  } catch (e) {
+    showToast('Erro ao atualizar estoque', 'error');
+  }
 }
 
 function getCategoryIcon(category) {
@@ -661,10 +897,10 @@ async function saveSupplier(e) {
   
   const supplierData = {
     name: document.getElementById('supplier-name').value.trim(),
-    cnpj: document.getElementById('supplier-cnpj').value.trim(),
-    phone: document.getElementById('supplier-phone').value.trim(),
-    email: document.getElementById('supplier-email').value.trim(),
-    contact: document.getElementById('supplier-contact').value.trim(),
+    cnpj: document.getElementById('supplier-cnpj').value.trim() || null,
+    phone: document.getElementById('supplier-phone').value.trim() || null,
+    email: document.getElementById('supplier-email').value.trim() || null,
+    contact: document.getElementById('supplier-contact').value.trim() || null,
     updated_at: new Date().toISOString()
   };
   
@@ -672,31 +908,20 @@ async function saveSupplier(e) {
   
   try {
     if (existingId) {
-      if (supabaseClient) await supabaseClient.from('suppliers').update(supplierData).eq('id', existingId);
-      const idx = suppliers.findIndex(s => s.id === existingId);
-      if (idx !== -1) suppliers[idx] = { ...suppliers[idx], ...supplierData };
+      await dbUpdate('suppliers', existingId, supplierData);
     } else {
       supplierData.id = crypto.randomUUID();
       supplierData.created_at = new Date().toISOString();
-      if (supabaseClient) await supabaseClient.from('suppliers').insert(supplierData);
-      suppliers.push(supplierData);
+      await dbInsert('suppliers', supplierData);
     }
-  } catch (e) {
-    if (!existingId) {
-      supplierData.id = supplierData.id || crypto.randomUUID();
-      supplierData.created_at = supplierData.created_at || new Date().toISOString();
-      suppliers.push(supplierData);
-    } else {
-      const idx = suppliers.findIndex(s => s.id === existingId);
-      if (idx !== -1) suppliers[idx] = { ...suppliers[idx], ...supplierData };
-    }
+    
+    await loadAllData();
+    closeSupplierModal();
+    showToast(existingId ? 'Fornecedor atualizado!' : 'Fornecedor cadastrado!');
+  } catch (err) {
+    console.error('Erro ao salvar fornecedor:', err);
+    showToast('Erro ao salvar fornecedor no banco de dados: ' + (err.message || err), 'error');
   }
-  
-  saveToLocalStorage();
-  renderSuppliers();
-  updateSupplierSelects();
-  closeSupplierModal();
-  showToast(existingId ? 'Fornecedor atualizado!' : 'Fornecedor cadastrado!');
 }
 
 async function deleteSupplier(id) {
@@ -705,14 +930,13 @@ async function deleteSupplier(id) {
   if (!confirm(`Excluir o fornecedor "${s.name}"?\nEssa ação não pode ser desfeita.`)) return;
 
   try {
-    if (supabaseClient) await supabaseClient.from('suppliers').delete().eq('id', id);
-  } catch (e) { /* continue with local delete */ }
-
-  suppliers = suppliers.filter(sup => sup.id !== id);
-  saveToLocalStorage();
-  renderSuppliers();
-  updateSupplierSelects();
-  showToast('Fornecedor excluído!', 'error');
+    await dbDelete('suppliers', id);
+    await loadAllData();
+    showToast('Fornecedor excluído!');
+  } catch (err) {
+    console.error('Erro ao excluir fornecedor:', err);
+    showToast('Erro ao excluir fornecedor do banco de dados', 'error');
+  }
 }
 
 function renderSuppliers() {
@@ -826,31 +1050,26 @@ async function saveStockEntry(e) {
     created_at: new Date().toISOString()
   };
   
+  // Calculate new stock and average cost
+  const newStock = product.stock + quantity;
+  const avgCost = newStock > 0 ? ((product.cost * product.stock) + (cost * quantity)) / newStock : cost;
+  
   try {
-    await supabaseClient.from('stock_entries').insert(entry);
+    // Save entry and update product in DB
+    await dbInsert('stock_entries', entry);
+    await dbUpdate('products', productId, { stock: newStock, cost: avgCost });
     
-    // Update product stock and cost
-    const newStock = product.stock + quantity;
-    const avgCost = ((product.cost * product.stock) + (cost * quantity)) / newStock;
-    await supabaseClient.from('products').update({ stock: newStock, cost: avgCost }).eq('id', productId);
+    // Reload all data from DB
+    await loadAllData();
     
-    product.stock = newStock;
-    product.cost = avgCost;
-  } catch (e) {
-    product.stock += quantity;
+    document.getElementById('stock-entry-form').reset();
+    updateDashboard();
+    updateAlerts();
+    showToast('Entrada registrada!');
+  } catch (err) {
+    console.error('Erro ao registrar entrada:', err);
+    showToast('Erro ao registrar entrada no banco de dados: ' + (err.message || err), 'error');
   }
-  
-  stockEntries.unshift(entry);
-  saveToLocalStorage();
-  
-  document.getElementById('stock-entry-form').reset();
-  renderRecentEntries();
-  renderProducts();
-  updateProductSelects();
-  renderPosProducts();
-  updateDashboard();
-  updateAlerts();
-  showToast('Entrada registrada!');
 }
 
 function renderRecentEntries() {
@@ -875,25 +1094,66 @@ function renderRecentEntries() {
   `).join('');
 }
 
-// Sales (POS) Functions
+// ============================================
+// POS / CASH REGISTER SYSTEM
+// ============================================
+
+let posView = 'grid'; // 'grid' | 'list'
+
+function setPosView(view) {
+  posView = view;
+  document.getElementById('pos-view-grid').className = view === 'grid'
+    ? 'p-2 rounded-lg bg-white dark:bg-wine-800 shadow-sm text-wine-700 dark:text-wine-200'
+    : 'p-2 rounded-lg text-wine-400 dark:text-wine-500 hover:text-wine-600';
+  document.getElementById('pos-view-list').className = view === 'list'
+    ? 'p-2 rounded-lg bg-white dark:bg-wine-800 shadow-sm text-wine-700 dark:text-wine-200'
+    : 'p-2 rounded-lg text-wine-400 dark:text-wine-500 hover:text-wine-600';
+  renderPosProducts();
+}
+
+function renderPosProductCard(p, showPrices) {
+  if (posView === 'list') {
+    return `
+      <button onclick="addToCart('${p.id}', event)" class="pos-product-card flex items-center gap-3 w-full col-span-full">
+        <div class="w-9 h-9 rounded-lg bg-wine-50 dark:bg-wine-900/50 flex items-center justify-center flex-shrink-0 text-wine-600 dark:text-wine-400">${getCategoryIcon(p.category)}</div>
+        <div class="flex-1 min-w-0 text-left">
+          <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">${p.name}</p>
+          <p class="text-xs text-gray-400 dark:text-wine-500">${getCategoryLabel(p.category)}${p.brand ? ' · ' + p.brand : ''}</p>
+        </div>
+        ${showPrices ? `<span class="text-accent-600 dark:text-accent-400 font-bold text-sm">R$ ${p.price.toFixed(2)}</span>` : ''}
+        <span class="text-xs text-gray-400 dark:text-wine-500 tabular-nums">${p.stock} un</span>
+      </button>`;
+  }
+  return `
+    <button onclick="addToCart('${p.id}', event)" class="pos-product-card flex flex-col gap-1.5">
+      <div class="flex items-center justify-between w-full">
+        <div class="w-8 h-8 rounded-lg bg-wine-50 dark:bg-wine-900/50 flex items-center justify-center text-wine-600 dark:text-wine-400">${getCategoryIcon(p.category)}</div>
+        <span class="text-[10px] font-medium text-gray-400 dark:text-wine-500 tabular-nums">${p.stock} un</span>
+      </div>
+      <p class="font-semibold text-gray-900 dark:text-white text-sm truncate w-full">${p.name}</p>
+      ${showPrices ? `<p class="text-accent-600 dark:text-accent-400 font-bold text-sm">R$ ${p.price.toFixed(2)}</p>` : ''}
+    </button>`;
+}
+
 function renderPosProducts() {
   const container = document.getElementById('pos-products');
   const availableProducts = products.filter(p => p.stock > 0);
   
   if (availableProducts.length === 0) {
-    container.innerHTML = '<p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">Nenhum produto disponível</p>';
+    container.innerHTML = `
+      <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-400 dark:text-wine-600">
+        <svg class="w-16 h-16 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        <p class="font-medium">Nenhum produto disponível</p>
+        <p class="text-xs mt-1">Cadastre produtos com estoque para exibir aqui</p>
+      </div>`;
     return;
   }
   
   const showPrices = isAdmin();
-  container.innerHTML = availableProducts.map(p => `
-    <button onclick="addToCart('${p.id}')" class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-wine-200 dark:border-wine-700 hover:border-wine-400 dark:hover:border-wine-500 transition-colors text-left">
-      <div class="w-8 h-8 flex items-center justify-center text-wine-700 dark:text-wine-300">${getCategoryIcon(p.category)}</div>
-      <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${p.name}</p>
-      ${showPrices ? `<p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>` : ''}
-      <p class="text-xs text-gray-500 dark:text-gray-400">${p.stock} un</p>
-    </button>
-  `).join('');
+  container.className = posView === 'list'
+    ? 'flex flex-col gap-2 max-h-[520px] overflow-y-auto scrollbar-thin pr-1'
+    : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[520px] overflow-y-auto scrollbar-thin pr-1';
+  container.innerHTML = availableProducts.map(p => renderPosProductCard(p, showPrices)).join('');
 }
 
 function filterPosProducts() {
@@ -904,29 +1164,43 @@ function filterPosProducts() {
     p.stock > 0 && (
       p.name.toLowerCase().includes(search) ||
       (p.barcode && p.barcode.includes(search)) ||
-      (p.code && p.code.toLowerCase().includes(search))
+      (p.code && p.code.toLowerCase().includes(search)) ||
+      (p.brand && p.brand.toLowerCase().includes(search)) ||
+      p.id.toLowerCase().includes(search)
     )
   );
   
   if (filtered.length === 0) {
-    container.innerHTML = '<p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">Nenhum produto encontrado</p>';
+    container.innerHTML = `
+      <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-400 dark:text-wine-600">
+        <svg class="w-12 h-12 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <p class="font-medium text-sm">Nenhum produto encontrado</p>
+      </div>`;
     return;
   }
   
   const showPrices = isAdmin();
-  container.innerHTML = filtered.map(p => `
-    <button onclick="addToCart('${p.id}')" class="p-3 rounded-xl bg-white dark:bg-gray-800 border border-wine-200 dark:border-wine-700 hover:border-wine-400 dark:hover:border-wine-500 transition-colors text-left">
-      <div class="w-8 h-8 flex items-center justify-center text-wine-700 dark:text-wine-300">${getCategoryIcon(p.category)}</div>
-      <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${p.name}</p>
-      ${showPrices ? `<p class="text-accent-600 dark:text-accent-400 font-bold">R$ ${p.price.toFixed(2)}</p>` : ''}
-      <p class="text-xs text-gray-500 dark:text-gray-400">${p.stock} un</p>
-    </button>
-  `).join('');
+  container.className = posView === 'list'
+    ? 'flex flex-col gap-2 max-h-[520px] overflow-y-auto scrollbar-thin pr-1'
+    : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[520px] overflow-y-auto scrollbar-thin pr-1';
+  container.innerHTML = filtered.map(p => renderPosProductCard(p, showPrices)).join('');
 }
 
-function addToCart(productId) {
+function addToCart(productId, event) {
   const product = products.find(p => p.id === productId);
   if (!product) return;
+  
+  // Ripple effect on product card
+  if (event && event.currentTarget) {
+    const btn = event.currentTarget;
+    const ripple = document.createElement('div');
+    ripple.className = 'pos-ripple';
+    const rect = btn.getBoundingClientRect();
+    ripple.style.left = (event.clientX - rect.left - 20) + 'px';
+    ripple.style.top = (event.clientY - rect.top - 20) + 'px';
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 500);
+  }
   
   const existingItem = cart.find(item => item.product_id === productId);
   
@@ -948,6 +1222,7 @@ function addToCart(productId) {
   }
   
   renderCart();
+  animateTotal();
 }
 
 function removeFromCart(productId) {
@@ -968,6 +1243,7 @@ function updateCartQuantity(productId, delta) {
   } else if (newQty <= product.stock) {
     item.quantity = newQty;
     renderCart();
+    animateTotal();
   } else {
     showToast('Estoque insuficiente', 'warning');
   }
@@ -975,27 +1251,37 @@ function updateCartQuantity(productId, delta) {
 
 function renderCart() {
   const container = document.getElementById('cart-items');
+  const itemCountEl = document.getElementById('pos-item-count');
+  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  
+  if (itemCountEl) itemCountEl.textContent = `${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`;
   
   if (cart.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">Nenhum item adicionado</p>';
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-wine-600">
+        <svg class="w-12 h-12 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+        <p class="text-sm font-medium">Selecione produtos ao lado</p>
+      </div>`;
     updateCartTotal();
     return;
   }
   
   const showPrices = isAdmin();
-  container.innerHTML = cart.map(item => `
-    <div class="flex items-center gap-3 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+  container.innerHTML = cart.map((item, idx) => `
+    <div class="pos-cart-item pos-cart-item-enter" style="animation-delay: ${idx * 30}ms">
+      <div class="w-8 h-8 rounded-lg bg-accent-500/10 dark:bg-accent-500/20 flex items-center justify-center text-accent-600 dark:text-accent-400 font-bold text-xs flex-shrink-0">
+        ${item.quantity}
+      </div>
       <div class="flex-1 min-w-0">
-        <p class="font-medium text-gray-900 dark:text-white text-sm truncate">${item.name}</p>
-        ${showPrices ? `<p class="text-xs text-gray-500 dark:text-gray-400">R$ ${item.price.toFixed(2)}</p>` : ''}
+        <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">${item.name}</p>
+        ${showPrices ? `<p class="text-xs text-gray-400 dark:text-wine-500">R$ ${item.price.toFixed(2)} × ${item.quantity} ${showPrices ? '= <span class="text-gray-700 dark:text-wine-200 font-medium">R$ ' + (item.price * item.quantity).toFixed(2) + '</span>' : ''}</p>` : ''}
       </div>
-      <div class="flex items-center gap-1">
-        <button onclick="updateCartQuantity('${item.product_id}', -1)" class="w-7 h-7 rounded-lg bg-wine-100 dark:bg-wine-900/50 text-wine-600 flex items-center justify-center hover:bg-wine-200 dark:hover:bg-wine-800">-</button>
-        <span class="w-8 text-center font-medium text-gray-900 dark:text-white">${item.quantity}</span>
-        <button onclick="updateCartQuantity('${item.product_id}', 1)" class="w-7 h-7 rounded-lg bg-wine-100 dark:bg-wine-900/50 text-wine-600 flex items-center justify-center hover:bg-wine-200 dark:hover:bg-wine-800">+</button>
+      <div class="flex items-center gap-0.5 flex-shrink-0">
+        <button onclick="updateCartQuantity('${item.product_id}', -1)" class="w-7 h-7 rounded-lg text-wine-500 dark:text-wine-400 flex items-center justify-center hover:bg-wine-100 dark:hover:bg-wine-800 transition-colors text-lg font-bold">−</button>
+        <button onclick="updateCartQuantity('${item.product_id}', 1)" class="w-7 h-7 rounded-lg text-wine-500 dark:text-wine-400 flex items-center justify-center hover:bg-wine-100 dark:hover:bg-wine-800 transition-colors text-lg font-bold">+</button>
       </div>
-      <button onclick="removeFromCart('${item.product_id}')" class="text-red-500 hover:text-red-600">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      <button onclick="removeFromCart('${item.product_id}')" class="w-6 h-6 flex items-center justify-center rounded text-gray-300 dark:text-wine-700 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
   `).join('');
@@ -1005,21 +1291,41 @@ function renderCart() {
 
 function updateCartTotal() {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = parseFloat(document.getElementById('cart-discount').value) || 0;
+  const discountEl = document.getElementById('cart-discount');
+  const discount = discountEl ? (parseFloat(discountEl.value) || 0) : 0;
   const total = Math.max(0, subtotal - discount);
   
+  const subtotalEl = document.getElementById('cart-subtotal');
+  const totalEl = document.getElementById('cart-total');
+  
   if (isAdmin()) {
-    document.getElementById('cart-subtotal').textContent = `R$ ${subtotal.toFixed(2)}`;
-    document.getElementById('cart-total').textContent = `R$ ${total.toFixed(2)}`;
+    if (subtotalEl) subtotalEl.textContent = `R$ ${subtotal.toFixed(2)}`;
+    if (totalEl) totalEl.textContent = `R$ ${total.toFixed(2)}`;
   } else {
-    document.getElementById('cart-subtotal').textContent = '---';
-    document.getElementById('cart-total').textContent = '---';
+    if (subtotalEl) subtotalEl.textContent = '---';
+    if (totalEl) totalEl.textContent = '---';
   }
+  
+  // Update save button state
+  const saveBtn = document.getElementById('pos-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = cart.length === 0;
+    saveBtn.style.opacity = cart.length === 0 ? '0.5' : '1';
+    saveBtn.style.pointerEvents = cart.length === 0 ? 'none' : 'auto';
+  }
+}
+
+function animateTotal() {
+  const totalEl = document.getElementById('cart-total');
+  if (!totalEl) return;
+  totalEl.classList.add('pos-total-bump');
+  setTimeout(() => totalEl.classList.remove('pos-total-bump'), 350);
 }
 
 function clearCart() {
   cart = [];
-  document.getElementById('cart-discount').value = 0;
+  const discountEl = document.getElementById('cart-discount');
+  if (discountEl) discountEl.value = 0;
   const clientInput = document.getElementById('quote-client-name');
   const notesInput = document.getElementById('quote-notes');
   if (clientInput) clientInput.value = '';
@@ -1033,6 +1339,12 @@ async function saveQuote() {
     return;
   }
   
+  const saveBtn = document.getElementById('pos-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Salvando...';
+  }
+  
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discount = parseFloat(document.getElementById('cart-discount').value) || 0;
   const total = Math.max(0, subtotal - discount);
@@ -1043,9 +1355,6 @@ async function saveQuote() {
   
   const sale = {
     id: crypto.randomUUID(),
-    type: 'orcamento',
-    client_name: clientName,
-    notes: notes,
     items: cart.map(item => ({
       product_id: item.product_id,
       name: item.name,
@@ -1057,33 +1366,138 @@ async function saveQuote() {
     discount,
     total,
     profit,
+    shift: getCurrentShift(),
+    payment_method: clientName ? `pendente - ${clientName}` : 'pendente',
     created_at: new Date().toISOString()
   };
   
-  // Update product stocks
-  for (const item of cart) {
-    const product = products.find(p => p.id === item.product_id);
-    if (product) {
-      product.stock -= item.quantity;
-      try {
-        await supabaseClient.from('products').update({ stock: product.stock }).eq('id', product.id);
-      } catch (e) {}
+  try {
+    await dbInsert('sales', sale);
+    
+    for (const item of cart) {
+      const product = products.find(p => p.id === item.product_id);
+      if (product) {
+        const newStock = product.stock - item.quantity;
+        await dbUpdate('products', product.id, { stock: newStock });
+      }
+    }
+    
+    // Success flash on register
+    const register = document.querySelector('.pos-register');
+    if (register) register.classList.add('pos-success-flash');
+    setTimeout(() => register && register.classList.remove('pos-success-flash'), 800);
+    
+    await loadAllData();
+    clearCart();
+    updateDashboard();
+    updateAlerts();
+    renderQuoteHistory();
+    showToast(isAdmin() ? `Orçamento de R$ ${total.toFixed(2)} salvo!` : 'Orçamento salvo!');
+  } catch (err) {
+    console.error('Erro ao salvar orçamento:', err);
+    showToast('Erro ao salvar orçamento: ' + (err.message || err), 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Salvar Orçamento';
     }
   }
-  
-  try {
-    await supabaseClient.from('sales').insert(sale);
-  } catch (e) {}
-  
-  sales.unshift(sale);
-  saveToLocalStorage();
-  
-  clearCart();
-  renderProducts();
-  renderPosProducts();
-  updateDashboard();
-  updateAlerts();
-  showToast(isAdmin() ? `Orçamento de R$ ${total.toFixed(2)} salvo com sucesso!` : 'Orçamento salvo com sucesso!');
+}
+
+// ============================================
+// QUOTES HISTORY PAGE
+// ============================================
+
+function renderQuoteHistory() {
+  const list = document.getElementById('quote-history-list');
+  const summaryEl = document.getElementById('quote-history-summary');
+  const statTotal = document.getElementById('quotes-stat-total');
+  const statValue = document.getElementById('quotes-stat-value');
+  const statToday = document.getElementById('quotes-stat-today');
+  const statAvg = document.getElementById('quotes-stat-avg');
+
+  // Search & sort
+  const search = (document.getElementById('quotes-search')?.value || '').toLowerCase();
+  const sort = document.getElementById('quotes-sort')?.value || 'newest';
+
+  let filtered = sales.filter(s => {
+    if (!search) return true;
+    const clientInfo = (s.payment_method || '').toLowerCase();
+    const items = Array.isArray(s.items) ? s.items : [];
+    const itemNames = items.map(it => (it.name || '').toLowerCase()).join(' ');
+    return clientInfo.includes(search) || itemNames.includes(search);
+  });
+
+  // Sort
+  if (sort === 'newest') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  else if (sort === 'oldest') filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  else if (sort === 'highest') filtered.sort((a, b) => (b.total || 0) - (a.total || 0));
+  else if (sort === 'lowest') filtered.sort((a, b) => (a.total || 0) - (b.total || 0));
+
+  // Stats (always over ALL sales, not filtered)
+  const totalAll = sales.reduce((s, v) => s + (v.total || 0), 0);
+  const todayStr = new Date().toDateString();
+  const todayCount = sales.filter(s => new Date(s.created_at).toDateString() === todayStr).length;
+  const avg = sales.length > 0 ? totalAll / sales.length : 0;
+
+  if (statTotal) statTotal.textContent = sales.length;
+  if (statValue) statValue.textContent = `R$ ${totalAll.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (statToday) statToday.textContent = todayCount;
+  if (statAvg) statAvg.textContent = `R$ ${avg.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (summaryEl) summaryEl.textContent = sales.length > 0
+    ? `${sales.length} orçamento${sales.length > 1 ? 's' : ''} · Total R$ ${totalAll.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    : 'Nenhum orçamento';
+
+  if (filtered.length === 0) {
+    if (list) list.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-wine-600">
+        <svg class="w-20 h-20 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <p class="font-semibold text-lg">Nenhum orçamento ${search ? 'encontrado' : 'salvo'}</p>
+        <p class="text-sm mt-1 opacity-70">${search ? 'Tente outra busca' : 'Crie seu primeiro orçamento no caixa'}</p>
+      </div>`;
+    return;
+  }
+
+  const showPrices = isAdmin();
+  if (list) {
+    list.innerHTML = filtered.map((s, idx) => {
+      const clientInfo = (s.payment_method && s.payment_method !== 'pendente')
+        ? s.payment_method.replace('pendente - ', '')
+        : null;
+      const items = Array.isArray(s.items) ? s.items : [];
+      const itemCount = items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+      const date = new Date(s.created_at);
+      const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const globalIdx = sales.indexOf(s);
+      const quoteNum = sales.length - globalIdx;
+
+      return `
+        <div class="quote-history-card">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-xl bg-accent-500/10 dark:bg-accent-500/20 flex items-center justify-center flex-shrink-0">
+                <span class="text-accent-600 dark:text-accent-400 font-bold text-sm">#${quoteNum}</span>
+              </div>
+              <div class="min-w-0">
+                ${clientInfo ? `<p class="font-bold text-gray-900 dark:text-white text-sm truncate">${clientInfo}</p>` : `<p class="font-bold text-gray-900 dark:text-white text-sm">Orçamento #${quoteNum}</p>`}
+                <p class="text-xs text-gray-400 dark:text-wine-500">${dateStr} às ${timeStr} · ${itemCount} ${itemCount === 1 ? 'item' : 'itens'}</p>
+              </div>
+            </div>
+            ${showPrices ? `<span class="text-lg font-black text-accent-600 dark:text-accent-400 tabular-nums flex-shrink-0">R$ ${(s.total || 0).toFixed(2)}</span>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            ${items.slice(0, 6).map(it => `
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-wine-900/50 text-xs font-medium text-gray-600 dark:text-wine-300">
+                <span class="text-accent-500 font-bold">${it.quantity}×</span> ${(it.name || '').length > 22 ? (it.name || '').substring(0, 22) + '…' : (it.name || '')}
+              </span>
+            `).join('')}
+            ${items.length > 6 ? `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-wine-900/50 text-xs text-gray-400">+${items.length - 6} mais</span>` : ''}
+          </div>
+          ${s.discount > 0 && showPrices ? `<p class="text-xs text-green-600 dark:text-green-400 mt-2">Desconto: R$ ${s.discount.toFixed(2)}</p>` : ''}
+        </div>`;
+    }).join('');
+  }
 }
 
 // Financial Functions
@@ -1099,16 +1513,19 @@ async function saveExpense(e) {
   };
   
   try {
-    await supabaseClient.from('expenses').insert(expense);
-  } catch (e) {}
-  
-  expenses.unshift(expense);
-  saveToLocalStorage();
-  
-  document.getElementById('expense-form').reset();
-  updateFinancials();
-  renderRecentTransactions();
-  showToast('Despesa registrada!');
+    await dbInsert('expenses', expense);
+    
+    // Reload from DB
+    await loadAllData();
+    
+    document.getElementById('expense-form').reset();
+    updateFinancials();
+    renderRecentTransactions();
+    showToast('Despesa registrada!');
+  } catch (err) {
+    console.error('Erro ao registrar despesa:', err);
+    showToast('Erro ao registrar despesa no banco de dados: ' + (err.message || err), 'error');
+  }
 }
 
 function updateFinancials() {
@@ -1136,7 +1553,7 @@ function renderRecentTransactions() {
   const container = document.getElementById('recent-transactions');
   
   const transactions = [
-    ...sales.slice(0, 5).map(s => ({ type: 'sale', amount: s.total, description: `Orçamento${s.client_name ? ' - ' + s.client_name : ''}`, date: s.created_at })),
+    ...sales.slice(0, 5).map(s => ({ type: 'sale', amount: s.total, description: `Orçamento${s.payment_method && s.payment_method !== 'pendente' ? ' - ' + s.payment_method.replace('pendente - ', '') : ''}`, date: s.created_at })),
     ...expenses.slice(0, 5).map(e => ({ type: 'expense', amount: e.amount, description: e.description, date: e.created_at }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
   
@@ -1192,6 +1609,9 @@ function updateDashboard() {
     alertBadge.classList.add('hidden');
   }
   
+  // Weekly chart
+  renderWeeklyChart();
+  
   // Top products
   renderTopProducts();
   
@@ -1200,22 +1620,68 @@ function updateDashboard() {
 }
 
 function setupSalesChart() {
+  renderWeeklyChart();
+}
+
+function renderWeeklyChart() {
   const chart = document.getElementById('sales-chart');
-  const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-  
-  // Generate sample data for visualization
-  const weekSales = days.map(() => Math.random() * 1000 + 200);
-  const maxSale = Math.max(...weekSales);
-  
-  chart.innerHTML = weekSales.map((sale, i) => {
-    const height = (sale / maxSale) * 100;
+  if (!chart) return;
+
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun … 6=Sat
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() + mondayOffset);
+
+  const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const weekTotals = [];
+  const weekCounts = [];
+
+  for (let d = 0; d < 7; d++) {
+    const dayStart = new Date(monday);
+    dayStart.setDate(monday.getDate() + d);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+
+    const daySales = sales.filter(s => {
+      const dt = new Date(s.created_at);
+      return dt >= dayStart && dt < dayEnd;
+    });
+
+    weekTotals.push(daySales.reduce((sum, s) => sum + (s.total || 0), 0));
+    weekCounts.push(daySales.length);
+  }
+
+  const maxVal = Math.max(...weekTotals, 1);
+  const showPrices = isAdmin();
+  const todayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  chart.innerHTML = weekTotals.map((val, i) => {
+    const pct = Math.max((val / maxVal) * 100, 3);
+    const isToday = i === todayIdx;
+    const hasData = val > 0;
+
+    const barColor = isToday
+      ? 'bg-accent-500'
+      : hasData
+        ? 'bg-wine-400 dark:bg-wine-500'
+        : 'bg-gray-200 dark:bg-wine-800/60';
+
+    const label = showPrices
+      ? (hasData ? `R$ ${val.toFixed(0)}` : '')
+      : (hasData ? `${weekCounts[i]}` : '');
+
     return `
-      <div class="flex-1 flex flex-col items-center gap-2">
-        <div class="w-full bg-wine-100 dark:bg-wine-900/50 rounded-t-lg relative" style="height: ${height}%">
-          <div class="absolute inset-0 progress-bar rounded-t-lg opacity-80"></div>
+      <div class="flex items-center gap-3">
+        <span class="w-8 text-xs font-semibold ${isToday ? 'text-accent-600 dark:text-accent-400' : 'text-gray-400 dark:text-wine-500'} text-right">${labels[i]}</span>
+        <div class="flex-1 h-7 bg-gray-100 dark:bg-wine-900/40 rounded-full overflow-hidden">
+          <div class="h-full rounded-full ${barColor} flex items-center justify-end pr-3 transition-all duration-700 ease-out" style="width: ${pct}%">
+            ${hasData ? `<span class="text-[11px] font-bold text-white truncate">${label}</span>` : ''}
+          </div>
         </div>
-      </div>
-    `;
+        ${isToday ? '<span class="w-2 h-2 rounded-full bg-accent-500 animate-pulse flex-shrink-0"></span>' : '<span class="w-2 flex-shrink-0"></span>'}
+      </div>`;
   }).join('');
 }
 
@@ -1267,7 +1733,7 @@ function renderRecentActivity() {
     ...sales.slice(0, 3).map(s => ({
       type: 'sale',
       icon: '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-      text: `Orçamento de R$ ${s.total.toFixed(2)}${s.client_name ? ' - ' + s.client_name : ''}`,
+      text: `Orçamento de R$ ${s.total.toFixed(2)}${s.payment_method && s.payment_method !== 'pendente' ? ' - ' + s.payment_method.replace('pendente - ', '') : ''}`,
       date: s.created_at
     })),
     ...stockEntries.slice(0, 3).map(e => ({
@@ -1304,7 +1770,9 @@ function getAlerts() {
       type: 'warning',
       title: 'Estoque baixo',
       message: `${p.name} está com apenas ${p.stock} unidades`,
-      icon: '<svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
+      icon: '<svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+      action: 'stock',
+      productId: p.id
     });
   });
   
@@ -1314,7 +1782,9 @@ function getAlerts() {
       type: 'error',
       title: 'Sem estoque',
       message: `${p.name} está sem estoque`,
-      icon: '<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>'
+      icon: '<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>',
+      action: 'stock',
+      productId: p.id
     });
   });
   
@@ -1328,11 +1798,25 @@ function getAlerts() {
       type: 'info',
       title: 'Margem baixa',
       message: `${p.name} tem margem de apenas ${margin}%`,
-      icon: '<svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+      icon: '<svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+      action: 'edit',
+      productId: p.id
     });
   });
   
   return alerts;
+}
+
+function handleAlertClick(action, productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+  
+  if (action === 'stock') {
+    openQuickStockModal(productId);
+  } else if (action === 'edit') {
+    navigateTo('products');
+    setTimeout(() => openProductModal(product), 150);
+  }
 }
 
 function updateAlerts() {
@@ -1348,15 +1832,23 @@ function updateAlerts() {
     const bgColor = a.type === 'error' ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' :
                    a.type === 'warning' ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800' :
                    'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
+    const actionLabel = a.action === 'stock' ? 'Ajustar Estoque' : 'Editar Produto';
+    const btnColor = a.type === 'error' ? 'text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50' :
+                    a.type === 'warning' ? 'text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50' :
+                    'text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/50';
     
     return `
-      <div class="glass-effect rounded-2xl p-4 shadow-lg ${bgColor} border">
+      <div class="glass-effect rounded-2xl p-4 shadow-lg ${bgColor} border cursor-pointer alert-card-hover" onclick="handleAlertClick('${a.action}', '${a.productId}')">
         <div class="flex items-start gap-4">
           <span class="flex-shrink-0">${a.icon}</span>
           <div class="flex-1">
             <h4 class="font-bold text-gray-900 dark:text-white">${a.title}</h4>
             <p class="text-sm text-gray-600 dark:text-gray-400">${a.message}</p>
           </div>
+          <span class="flex-shrink-0 text-xs font-medium ${btnColor} px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            ${actionLabel}
+          </span>
         </div>
       </div>
     `;
@@ -1384,14 +1876,29 @@ function getFilteredSales() {
   
   return sales.filter(s => {
     const d = new Date(s.created_at);
+    let matchesPeriod = true;
     switch (reportPeriod) {
-      case 'today': return d >= todayStart;
-      case '7d': return d >= new Date(now - 7 * 86400000);
-      case '30d': return d >= new Date(now - 30 * 86400000);
-      case '90d': return d >= new Date(now - 90 * 86400000);
-      default: return true;
+      case 'today': matchesPeriod = d >= todayStart; break;
+      case '7d': matchesPeriod = d >= new Date(now - 7 * 86400000); break;
+      case '30d': matchesPeriod = d >= new Date(now - 30 * 86400000); break;
+      case '90d': matchesPeriod = d >= new Date(now - 90 * 86400000); break;
+      default: matchesPeriod = true;
     }
+    let matchesShift = true;
+    if (reportShiftFilter !== 'all') {
+      const saleShift = s.shift || getShiftForTime(s.created_at);
+      matchesShift = saleShift === reportShiftFilter;
+    }
+    return matchesPeriod && matchesShift;
   });
+}
+
+function setReportShift(shift) {
+  reportShiftFilter = shift;
+  document.querySelectorAll('.report-shift-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shift === shift);
+  });
+  refreshReports();
 }
 
 function getChartColors() {
@@ -2043,12 +2550,249 @@ function closeReport() {
   document.getElementById('report-display').classList.add('hidden');
 }
 
-// Initialize
-window.addEventListener('DOMContentLoaded', () => {
-  init();
-});
+// ============================================
+// SHIFT SYSTEM - Dual Cash Register Shifts
+// ============================================
 
-// Fallback - run init immediately if DOM is already loaded
+function getCurrentShift() {
+  const now = new Date();
+  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  
+  if (currentTime >= shiftConfig.shift1_start && currentTime < shiftConfig.shift1_end) {
+    return 'shift1';
+  }
+  if (shiftConfig.shift2_start <= shiftConfig.shift2_end) {
+    if (currentTime >= shiftConfig.shift2_start && currentTime < shiftConfig.shift2_end) {
+      return 'shift2';
+    }
+  } else {
+    // Handles overnight shifts (e.g., 22:00 - 06:00)
+    if (currentTime >= shiftConfig.shift2_start || currentTime < shiftConfig.shift2_end) {
+      return 'shift2';
+    }
+  }
+  // If between shifts, return closest
+  return currentTime < shiftConfig.shift1_start ? 'shift1' : 'shift2';
+}
+
+function getShiftForTime(dateStr) {
+  const d = new Date(dateStr);
+  const timeStr = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+  
+  if (timeStr >= shiftConfig.shift1_start && timeStr < shiftConfig.shift1_end) {
+    return 'shift1';
+  }
+  if (shiftConfig.shift2_start <= shiftConfig.shift2_end) {
+    if (timeStr >= shiftConfig.shift2_start && timeStr < shiftConfig.shift2_end) {
+      return 'shift2';
+    }
+  } else {
+    if (timeStr >= shiftConfig.shift2_start || timeStr < shiftConfig.shift2_end) {
+      return 'shift2';
+    }
+  }
+  return timeStr < shiftConfig.shift1_start ? 'shift1' : 'shift2';
+}
+
+function updateShiftIndicator() {
+  const shift = getCurrentShift();
+  const isMorning = shift === 'shift1';
+  
+  const nameEl = document.getElementById('shift-name');
+  const rangeEl = document.getElementById('shift-time-range');
+  const iconBox = document.getElementById('shift-icon-box');
+  const sunSvg = document.getElementById('shift-svg-sun');
+  const moonSvg = document.getElementById('shift-svg-moon');
+  
+  if (nameEl) nameEl.textContent = isMorning ? shiftConfig.shift1_name : shiftConfig.shift2_name;
+  if (rangeEl) rangeEl.textContent = isMorning
+    ? `${shiftConfig.shift1_start} - ${shiftConfig.shift1_end}`
+    : `${shiftConfig.shift2_start} - ${shiftConfig.shift2_end}`;
+  
+  if (iconBox) {
+    iconBox.className = isMorning ? 'shift-icon shift-icon-morning' : 'shift-icon shift-icon-night';
+  }
+  if (sunSvg) sunSvg.classList.toggle('hidden', !isMorning);
+  if (moonSvg) moonSvg.classList.toggle('hidden', isMorning);
+}
+
+function startShiftAutoUpdate() {
+  if (shiftUpdateInterval) clearInterval(shiftUpdateInterval);
+  updateShiftIndicator();
+  shiftUpdateInterval = setInterval(() => {
+    updateShiftIndicator();
+    // Also update settings page if visible
+    if (currentPage === 'settings') refreshSettingsShiftStatus();
+  }, 30000); // Check every 30s
+}
+
+async function loadShiftConfig() {
+  // Try loading from Supabase first (only if app_settings table exists)
+  if (supabaseClient && (await isTableAvailable('app_settings'))) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'shift_config')
+        .maybeSingle();
+      if (data && !error && data.value) {
+        const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        Object.assign(shiftConfig, parsed);
+      }
+    } catch (e) {
+      // app_settings table may not exist, localStorage fallback below
+    }
+  }
+  
+  // Fallback to localStorage
+  const saved = localStorage.getItem('adega_shift_config');
+  if (saved) {
+    try {
+      Object.assign(shiftConfig, JSON.parse(saved));
+    } catch (e) {}
+  }
+  
+  startShiftAutoUpdate();
+}
+
+async function saveShiftConfig(e) {
+  e.preventDefault();
+  
+  shiftConfig.shift1_name = document.getElementById('shift1-name').value.trim() || 'Manhã';
+  shiftConfig.shift1_start = document.getElementById('shift1-start').value || '06:00';
+  shiftConfig.shift1_end = document.getElementById('shift1-end').value || '14:00';
+  shiftConfig.shift2_name = document.getElementById('shift2-name').value.trim() || 'Noite';
+  shiftConfig.shift2_start = document.getElementById('shift2-start').value || '14:00';
+  shiftConfig.shift2_end = document.getElementById('shift2-end').value || '23:59';
+  
+  // Save to localStorage
+  localStorage.setItem('adega_shift_config', JSON.stringify(shiftConfig));
+  
+  // Try saving to Supabase (only if app_settings table exists)
+  if (supabaseClient && _tableAvailable['app_settings']) {
+    try {
+      await supabaseClient
+        .from('app_settings')
+        .upsert({ key: 'shift_config', value: shiftConfig }, { onConflict: 'key' });
+    } catch (e) {
+      // app_settings table may not exist, localStorage is primary storage
+    }
+  }
+  
+  updateShiftIndicator();
+  refreshSettingsPage();
+  updateReportShiftLabels();
+  showToast('Configurações de turnos salvas!');
+}
+
+function refreshSettingsPage() {
+  // Fill form fields
+  const s1Name = document.getElementById('shift1-name');
+  if (s1Name) s1Name.value = shiftConfig.shift1_name;
+  const s1Start = document.getElementById('shift1-start');
+  if (s1Start) s1Start.value = shiftConfig.shift1_start;
+  const s1End = document.getElementById('shift1-end');
+  if (s1End) s1End.value = shiftConfig.shift1_end;
+  const s2Name = document.getElementById('shift2-name');
+  if (s2Name) s2Name.value = shiftConfig.shift2_name;
+  const s2Start = document.getElementById('shift2-start');
+  if (s2Start) s2Start.value = shiftConfig.shift2_start;
+  const s2End = document.getElementById('shift2-end');
+  if (s2End) s2End.value = shiftConfig.shift2_end;
+  
+  // Update preview cards
+  const sn1 = document.getElementById('settings-shift1-name');
+  if (sn1) sn1.textContent = shiftConfig.shift1_name;
+  const sr1 = document.getElementById('settings-shift1-range');
+  if (sr1) sr1.textContent = `${shiftConfig.shift1_start} — ${shiftConfig.shift1_end}`;
+  const sn2 = document.getElementById('settings-shift2-name');
+  if (sn2) sn2.textContent = shiftConfig.shift2_name;
+  const sr2 = document.getElementById('settings-shift2-range');
+  if (sr2) sr2.textContent = `${shiftConfig.shift2_start} — ${shiftConfig.shift2_end}`;
+  
+  refreshSettingsShiftStatus();
+  updateShiftSummaryToday();
+}
+
+function refreshSettingsShiftStatus() {
+  const current = getCurrentShift();
+  
+  const card1 = document.getElementById('settings-shift1-card');
+  const card2 = document.getElementById('settings-shift2-card');
+  const status1 = document.getElementById('settings-shift1-status');
+  const status2 = document.getElementById('settings-shift2-status');
+  
+  if (card1) {
+    card1.className = current === 'shift1'
+      ? 'shift-config-card shift-config-active rounded-2xl p-5 border-2 transition-all cursor-default'
+      : 'shift-config-card rounded-2xl p-5 border-2 transition-all cursor-default';
+  }
+  if (card2) {
+    card2.className = current === 'shift2'
+      ? 'shift-config-card shift-config-active rounded-2xl p-5 border-2 transition-all cursor-default'
+      : 'shift-config-card rounded-2xl p-5 border-2 transition-all cursor-default';
+  }
+  if (status1) {
+    status1.className = current === 'shift1' ? 'shift-status-badge shift-status-active' : 'shift-status-badge shift-status-inactive';
+    status1.innerHTML = current === 'shift1' ? '<span class="shift-status-dot"></span> Ativo agora' : '<span class="shift-status-dot"></span> Inativo';
+  }
+  if (status2) {
+    status2.className = current === 'shift2' ? 'shift-status-badge shift-status-active' : 'shift-status-badge shift-status-inactive';
+    status2.innerHTML = current === 'shift2' ? '<span class="shift-status-dot"></span> Ativo agora' : '<span class="shift-status-dot"></span> Inativo';
+  }
+}
+
+function updateShiftSummaryToday() {
+  const todayStr = new Date().toDateString();
+  const todaySales = sales.filter(s => new Date(s.created_at).toDateString() === todayStr);
+  
+  // Classify sales by shift - use stored shift or infer from time
+  const shift1Sales = todaySales.filter(s => (s.shift || getShiftForTime(s.created_at)) === 'shift1');
+  const shift2Sales = todaySales.filter(s => (s.shift || getShiftForTime(s.created_at)) === 'shift2');
+  
+  // Shift 1 stats
+  const s1Count = shift1Sales.length;
+  const s1Revenue = shift1Sales.reduce((sum, s) => sum + (s.total || 0), 0);
+  const s1Profit = shift1Sales.reduce((sum, s) => sum + (s.profit || 0), 0);
+  
+  const el1Count = document.getElementById('shift1-stat-count');
+  const el1Revenue = document.getElementById('shift1-stat-revenue');
+  const el1Profit = document.getElementById('shift1-stat-profit');
+  if (el1Count) el1Count.textContent = s1Count;
+  if (el1Revenue) el1Revenue.textContent = `R$ ${s1Revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (el1Profit) el1Profit.textContent = `R$ ${s1Profit.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  
+  // Shift 2 stats
+  const s2Count = shift2Sales.length;
+  const s2Revenue = shift2Sales.reduce((sum, s) => sum + (s.total || 0), 0);
+  const s2Profit = shift2Sales.reduce((sum, s) => sum + (s.profit || 0), 0);
+  
+  const el2Count = document.getElementById('shift2-stat-count');
+  const el2Revenue = document.getElementById('shift2-stat-revenue');
+  const el2Profit = document.getElementById('shift2-stat-profit');
+  if (el2Count) el2Count.textContent = s2Count;
+  if (el2Revenue) el2Revenue.textContent = `R$ ${s2Revenue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (el2Profit) el2Profit.textContent = `R$ ${s2Profit.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  
+  // Update summary labels
+  const sn1 = document.getElementById('shift-summary-name1');
+  const sr1 = document.getElementById('shift-summary-range1');
+  const sn2 = document.getElementById('shift-summary-name2');
+  const sr2 = document.getElementById('shift-summary-range2');
+  if (sn1) sn1.textContent = shiftConfig.shift1_name;
+  if (sr1) sr1.textContent = `${shiftConfig.shift1_start} — ${shiftConfig.shift1_end}`;
+  if (sn2) sn2.textContent = shiftConfig.shift2_name;
+  if (sr2) sr2.textContent = `${shiftConfig.shift2_start} — ${shiftConfig.shift2_end}`;
+}
+
+function updateReportShiftLabels() {
+  const l1 = document.getElementById('rpt-shift1-label');
+  const l2 = document.getElementById('rpt-shift2-label');
+  if (l1) l1.textContent = shiftConfig.shift1_name;
+  if (l2) l2.textContent = shiftConfig.shift2_name;
+}
+
+// Initialize - single entry point to avoid duplicate Supabase client instances
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

@@ -71,7 +71,6 @@
     }
   </script>
   <link rel="stylesheet" href="styles.css">
-  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
  </head>
  <body class="h-full bg-gray-50 dark:bg-gray-950 font-sans overflow-auto text-gray-800 dark:text-gray-200">
   <!-- Login Screen -->
@@ -123,15 +122,19 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
       </svg> Estoque </button> <button onclick="navigateTo('sales')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="sales" data-role="all">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg> Orçamentos </button> <button onclick="navigateTo('financial')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="financial" data-role="admin">
+      </svg> Orçamentos </button> <button onclick="navigateTo('quotes')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="quotes" data-role="all">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg> Histórico </button> <button onclick="navigateTo('financial')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="financial" data-role="admin">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg> Financeiro </button> <button onclick="navigateTo('reports')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="reports" data-role="admin">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg> Relatórios </button> <button onclick="navigateTo('alerts')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium relative transition-colors" data-nav="alerts" data-role="all">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-      </svg> Alertas <span id="alert-badge" class="absolute right-2 top-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold hidden">0</span> </button> <button onclick="navigateTo('suppliers')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="suppliers" data-role="all">
+      </svg> Alertas <span id="alert-badge" class="absolute right-2 top-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold hidden">0</span> </button> <button onclick="navigateTo('suppliers')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="suppliers" data-role="admin">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg> Fornecedores </button>
+      </svg> Fornecedores </button> <button onclick="navigateTo('settings')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-wine-300 hover:bg-white/10 hover:text-white font-medium transition-colors" data-nav="settings" data-role="admin">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Configurações </button>
     </nav>
     <div class="p-4 border-t border-white/10 space-y-1">
      <div id="user-info" class="flex items-center gap-3 px-4 py-2 mb-1">
@@ -208,14 +211,9 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
        <!-- Sales Chart -->
        <div class="lg:col-span-2 glass-effect rounded-2xl p-6 shadow-lg">
-        <div class="flex items-center justify-between mb-6">
-         <h3 class="text-lg font-bold text-wine-900 dark:text-white">Orçamentos da Semana</h3><select class="text-sm border border-wine-200 dark:border-wine-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"> <option>Esta semana</option> <option>Último mês</option> <option>Último trimestre</option> </select>
-        </div>
-        <div id="sales-chart" class="h-64 flex items-end justify-around gap-2 px-4">
-         <!-- Chart bars will be generated dynamically -->
-        </div>
-        <div class="flex justify-around mt-4 text-xs text-gray-500 dark:text-gray-400">
-         <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6">Orçamentos da Semana</h3>
+        <div id="sales-chart" class="space-y-3">
+         <!-- Chart rows rendered by JS -->
         </div>
        </div><!-- Top Products -->
        <div class="glass-effect rounded-2xl p-6 shadow-lg">
@@ -245,8 +243,11 @@
        <div class="flex flex-col md:flex-row gap-4">
         <div class="flex-1 relative">
          <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-         </svg><input type="text" id="product-search" placeholder="Buscar por nome, código ou marca..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent" oninput="filterProducts()">
+         </svg><input type="text" id="product-search" placeholder="Buscar por nome, ID, código, marca..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent" oninput="filterProducts()">
         </div><select id="category-filter" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" onchange="filterProducts()"> <option value="">Todas categorias</option> <option value="vinho-tinto">Vinho Tinto</option> <option value="vinho-branco">Vinho Branco</option> <option value="vinho-rose">Vinho Rosé</option> <option value="espumante">Espumante</option> <option value="champagne">Champagne</option> <option value="cerveja">Cerveja</option> <option value="destilado">Destilado</option> <option value="outros">Outros</option> </select> <select id="stock-filter" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300" onchange="filterProducts()"> <option value="">Todo estoque</option> <option value="low">Estoque baixo</option> <option value="out">Sem estoque</option> <option value="ok">Estoque OK</option> </select>
+        <button onclick="clearProductFilters()" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-red-500 hover:border-red-300 dark:hover:border-red-600 transition-colors text-sm font-medium whitespace-nowrap" title="Limpar filtros">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
        </div>
       </div><!-- Products Grid -->
       <div id="products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -302,55 +303,207 @@
         </div>
        </div>
       </div>
-     </div><!-- Sales (POS) Page -->
+     </div><!-- Sales (POS) Page - Professional Cash Register -->
      <div id="page-sales" class="page-content hidden">
-      <div class="mb-8">
-       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Orçamentos</h2>
-       <p class="text-wine-600 dark:text-wine-400">Crie e salve orçamentos para seus clientes</p>
+      <!-- Top Bar -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+       <div>
+        <h2 class="text-3xl font-extrabold text-wine-900 dark:text-white flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-accent-500/15 dark:bg-accent-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-accent-600 dark:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+         </div>
+         Caixa de Orçamentos
+        </h2>
+        <p class="text-wine-500 dark:text-wine-400 mt-1 ml-[52px]">Monte orçamentos e acompanhe o histórico</p>
+       </div>
+       <div class="flex items-center gap-3">
+        <!-- Shift Indicator -->
+        <div id="shift-indicator" class="shift-indicator-box">
+         <div class="flex items-center gap-2.5">
+          <div id="shift-icon-box" class="shift-icon shift-icon-morning">
+           <svg id="shift-svg-sun" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+           <svg id="shift-svg-moon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          </div>
+          <div>
+           <p id="shift-name" class="text-sm font-bold text-gray-900 dark:text-white leading-tight">Manhã</p>
+           <p id="shift-time-range" class="text-[10px] text-gray-500 dark:text-wine-400">06:00 - 14:00</p>
+          </div>
+          <div id="shift-live-dot" class="shift-live-dot"></div>
+         </div>
+        </div>
+        <button onclick="navigateTo('quotes')" class="relative flex items-center gap-2 px-4 py-2.5 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-wine-900 text-wine-700 dark:text-wine-300 text-sm font-medium hover:bg-wine-50 dark:hover:bg-wine-800 transition-colors">
+         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+         Ver Histórico
+        </button>
+       </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-       <!-- Product Selection -->
-       <div class="lg:col-span-2 glass-effect rounded-2xl p-6 shadow-lg">
-        <div class="flex items-center gap-4 mb-6">
-         <div class="flex-1 relative">
-          <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg><input type="text" id="pos-search" placeholder="Buscar produto ou código de barras..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent-500" oninput="filterPosProducts()">
-         </div>
-        </div>
-        <div id="pos-products" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto scrollbar-thin">
-         <p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">Nenhum produto disponível</p>
-        </div>
-       </div><!-- Cart -->
-       <div class="glass-effect rounded-2xl p-6 shadow-lg flex flex-col">
-        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-4">Itens do Orçamento</h3>
-        <div id="cart-items" class="flex-1 space-y-3 overflow-y-auto scrollbar-thin max-h-64 mb-4">
-         <p class="text-gray-500 dark:text-gray-400 text-sm text-center py-8">Nenhum item adicionado</p>
-        </div>
-        <div class="border-t border-wine-200 dark:border-wine-700 pt-4 space-y-3">
-         <div class="admin-only flex justify-between text-sm">
-          <span class="text-gray-600 dark:text-gray-400">Subtotal</span> <span id="cart-subtotal" class="font-medium text-gray-900 dark:text-white">R$ 0,00</span>
-         </div>
-         <div class="admin-only flex items-center gap-2">
-          <span class="text-sm text-gray-600 dark:text-gray-400">Desconto</span> <input type="number" id="cart-discount" value="0" min="0" step="0.01" class="flex-1 px-3 py-2 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm text-right" onchange="updateCartTotal()">
-         </div>
-         <div class="admin-only flex justify-between text-lg font-bold">
-          <span class="text-wine-900 dark:text-white">Total</span> <span id="cart-total" class="text-accent-600 dark:text-accent-400">R$ 0,00</span>
-         </div>
-         <div class="space-y-2 pt-2">
-          <div>
-           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Cliente</label>
-           <input type="text" id="quote-client-name" placeholder="Nome do cliente (opcional)" class="w-full px-3 py-2 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+
+      <!-- Main POS Layout -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+       <!-- LEFT: Product Grid -->
+       <div class="xl:col-span-7 space-y-4">
+        <!-- Search Bar -->
+        <div class="glass-effect rounded-2xl p-4 shadow-lg">
+         <div class="flex items-center gap-3">
+          <div class="flex-1 relative">
+           <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+           <input type="text" id="pos-search" placeholder="Buscar produto, código ou código de barras..." class="w-full pl-12 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-accent-500" oninput="filterPosProducts()" autofocus>
           </div>
-          <div>
-           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-           <textarea id="quote-notes" rows="2" placeholder="Observações do orçamento..." class="w-full px-3 py-2 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"></textarea>
+          <div class="flex items-center gap-1 bg-wine-50 dark:bg-wine-900/50 rounded-xl p-1">
+           <button onclick="setPosView('grid')" id="pos-view-grid" class="p-2 rounded-lg bg-white dark:bg-wine-800 shadow-sm text-wine-700 dark:text-wine-200" title="Grade">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+           </button>
+           <button onclick="setPosView('list')" id="pos-view-list" class="p-2 rounded-lg text-wine-400 dark:text-wine-500 hover:text-wine-600" title="Lista">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+           </button>
           </div>
          </div>
-         <button type="button" onclick="saveQuote()" class="btn-primary w-full text-white py-3 rounded-xl font-semibold shadow-lg mt-2"> Salvar Orçamento </button> <button type="button" onclick="clearCart()" class="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-wine-600 dark:hover:text-wine-400"> Limpar Itens </button>
+        </div>
+        <!-- Products -->
+        <div class="glass-effect rounded-2xl p-4 shadow-lg">
+         <div id="pos-products" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[520px] overflow-y-auto scrollbar-thin pr-1">
+          <p class="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">Nenhum produto disponível</p>
+         </div>
+        </div>
+       </div>
+
+       <!-- RIGHT: Cart / Register -->
+       <div class="xl:col-span-5">
+        <div class="pos-register rounded-3xl shadow-2xl overflow-hidden sticky top-4">
+         <!-- Register Header -->
+         <div class="pos-register-header px-6 py-4">
+          <div class="flex items-center justify-between">
+           <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
+             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+            </div>
+            <div>
+             <h3 class="text-white font-bold text-base">Orçamento</h3>
+             <p class="text-white/60 text-xs" id="pos-item-count">0 itens</p>
+            </div>
+           </div>
+           <button onclick="clearCart()" class="text-white/50 hover:text-white/90 transition-colors p-1.5 hover:bg-white/10 rounded-lg" title="Limpar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+           </button>
+          </div>
+         </div>
+
+         <!-- Cart Items -->
+         <div class="bg-white dark:bg-wine-950 px-4 py-3">
+          <div id="cart-items" class="space-y-1 overflow-y-auto scrollbar-thin max-h-[280px] min-h-[120px]">
+           <div class="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-wine-600">
+            <svg class="w-12 h-12 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+            <p class="text-sm font-medium">Selecione produtos ao lado</p>
+           </div>
+          </div>
+         </div>
+
+         <!-- Totals Display -->
+         <div class="bg-gray-50 dark:bg-wine-900/80 px-6 py-4 space-y-2.5 border-t border-gray-100 dark:border-wine-800">
+          <div class="admin-only flex justify-between text-sm">
+           <span class="text-gray-500 dark:text-wine-400">Subtotal</span>
+           <span id="cart-subtotal" class="font-semibold text-gray-700 dark:text-wine-200">R$ 0,00</span>
+          </div>
+          <div class="admin-only flex items-center justify-between text-sm">
+           <span class="text-gray-500 dark:text-wine-400">Desconto</span>
+           <div class="flex items-center gap-1">
+            <span class="text-gray-400 text-xs">R$</span>
+            <input type="number" id="cart-discount" value="0" min="0" step="0.01" class="w-20 px-2 py-1 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-wine-800 text-gray-900 dark:text-white text-sm text-right" onchange="updateCartTotal()">
+           </div>
+          </div>
+          <div class="admin-only pos-total-divider"></div>
+          <div class="admin-only flex justify-between items-end">
+           <span class="text-sm font-bold text-gray-600 dark:text-wine-300 uppercase tracking-wide">Total</span>
+           <span id="cart-total" class="pos-total-value text-3xl font-black text-accent-600 dark:text-accent-400 tabular-nums">R$ 0,00</span>
+          </div>
+         </div>
+
+         <!-- Client & Notes -->
+         <div class="bg-white dark:bg-wine-950 px-6 py-4 space-y-3 border-t border-gray-100 dark:border-wine-800">
+          <div class="flex gap-3">
+           <div class="flex-1">
+            <div class="relative">
+             <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+             <input type="text" id="quote-client-name" placeholder="Nome do cliente" class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-wine-200 dark:border-wine-700 bg-gray-50 dark:bg-wine-900 text-gray-900 dark:text-white text-sm">
+            </div>
+           </div>
+          </div>
+          <textarea id="quote-notes" rows="2" placeholder="Observações..." class="w-full px-3 py-2.5 rounded-xl border border-wine-200 dark:border-wine-700 bg-gray-50 dark:bg-wine-900 text-gray-900 dark:text-white text-sm resize-none"></textarea>
+         </div>
+
+         <!-- Action Button -->
+         <div class="px-6 pb-6 pt-2 bg-white dark:bg-wine-950">
+          <button type="button" onclick="saveQuote()" id="pos-save-btn" class="pos-save-button w-full text-white py-4 rounded-2xl font-bold text-base shadow-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+           Salvar Orçamento
+          </button>
+         </div>
         </div>
        </div>
       </div>
-     </div><!-- Financial Page -->
+
+     </div><!-- Quotes History Page -->
+     <div id="page-quotes" class="page-content hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+       <div>
+        <h2 class="text-3xl font-extrabold text-wine-900 dark:text-white flex items-center gap-3">
+         <div class="w-10 h-10 rounded-xl bg-accent-500/15 dark:bg-accent-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-accent-600 dark:text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+         </div>
+         Orçamentos Feitos
+        </h2>
+        <p class="text-wine-500 dark:text-wine-400 mt-1 ml-[52px]" id="quote-history-summary">Nenhum orçamento</p>
+       </div>
+       <button onclick="navigateTo('sales')" class="btn-primary text-white px-5 py-3 rounded-xl font-semibold shadow-lg flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Novo Orçamento
+       </button>
+      </div>
+
+      <!-- Search & Filter -->
+      <div class="glass-effect rounded-2xl p-4 shadow-lg mb-6">
+       <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1 relative">
+         <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+         <input type="text" id="quotes-search" placeholder="Buscar por cliente ou produto..." class="w-full pl-12 pr-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-accent-500" oninput="renderQuoteHistory()">
+        </div>
+        <select id="quotes-sort" class="px-4 py-3 rounded-xl border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm" onchange="renderQuoteHistory()">
+         <option value="newest">Mais recentes</option>
+         <option value="oldest">Mais antigos</option>
+         <option value="highest">Maior valor</option>
+         <option value="lowest">Menor valor</option>
+        </select>
+       </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="quotes-stats">
+       <div class="glass-effect rounded-2xl p-4 shadow-lg text-center">
+        <p class="text-2xl font-black text-wine-900 dark:text-white" id="quotes-stat-total">0</p>
+        <p class="text-xs text-gray-500 dark:text-wine-400 mt-1">Total orçamentos</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-4 shadow-lg text-center admin-only">
+        <p class="text-2xl font-black text-accent-600 dark:text-accent-400" id="quotes-stat-value">R$ 0</p>
+        <p class="text-xs text-gray-500 dark:text-wine-400 mt-1">Valor total</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-4 shadow-lg text-center">
+        <p class="text-2xl font-black text-wine-900 dark:text-white" id="quotes-stat-today">0</p>
+        <p class="text-xs text-gray-500 dark:text-wine-400 mt-1">Hoje</p>
+       </div>
+       <div class="glass-effect rounded-2xl p-4 shadow-lg text-center admin-only">
+        <p class="text-2xl font-black text-green-600 dark:text-green-400" id="quotes-stat-avg">R$ 0</p>
+        <p class="text-xs text-gray-500 dark:text-wine-400 mt-1">Ticket médio</p>
+       </div>
+      </div>
+
+      <!-- Quote List -->
+      <div id="quote-history-list" class="space-y-3">
+       <p class="text-gray-500 dark:text-gray-400 text-sm text-center py-12">Nenhum orçamento salvo</p>
+      </div>
+     </div>
+
+     <!-- Financial Page -->
      <div id="page-financial" class="page-content hidden">
       <div class="mb-8">
        <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Financeiro</h2>
@@ -427,12 +580,25 @@
         <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-1">Relatórios</h2>
         <p class="text-wine-600 dark:text-wine-400 text-sm">Análise em tempo real do seu negócio</p>
        </div>
-       <div class="flex items-center gap-2 report-period-bar">
-        <button onclick="setReportPeriod('today')" data-period="today" class="report-period-btn active">Hoje</button>
-        <button onclick="setReportPeriod('7d')" data-period="7d" class="report-period-btn">7 dias</button>
-        <button onclick="setReportPeriod('30d')" data-period="30d" class="report-period-btn">30 dias</button>
-        <button onclick="setReportPeriod('90d')" data-period="90d" class="report-period-btn">90 dias</button>
-        <button onclick="setReportPeriod('all')" data-period="all" class="report-period-btn">Tudo</button>
+       <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-2 report-period-bar">
+         <button onclick="setReportPeriod('today')" data-period="today" class="report-period-btn active">Hoje</button>
+         <button onclick="setReportPeriod('7d')" data-period="7d" class="report-period-btn">7 dias</button>
+         <button onclick="setReportPeriod('30d')" data-period="30d" class="report-period-btn">30 dias</button>
+         <button onclick="setReportPeriod('90d')" data-period="90d" class="report-period-btn">90 dias</button>
+         <button onclick="setReportPeriod('all')" data-period="all" class="report-period-btn">Tudo</button>
+        </div>
+        <div class="flex items-center gap-2 report-shift-bar">
+         <button onclick="setReportShift('all')" data-shift="all" class="report-shift-btn active">Todos Turnos</button>
+         <button onclick="setReportShift('shift1')" data-shift="shift1" class="report-shift-btn">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <span id="rpt-shift1-label">Manhã</span>
+         </button>
+         <button onclick="setReportShift('shift2')" data-shift="shift2" class="report-shift-btn">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <span id="rpt-shift2-label">Noite</span>
+         </button>
+        </div>
        </div>
       </div>
 
@@ -587,7 +753,186 @@
       <div id="alerts-list" class="space-y-4">
        <p class="text-gray-500 dark:text-gray-400 text-center py-12">Nenhum alerta no momento</p>
       </div>
-     </div><!-- Suppliers Page -->
+     </div>
+
+     <!-- Settings Page (Admin) -->
+     <div id="page-settings" class="page-content hidden">
+      <div class="mb-8">
+       <h2 class="text-3xl font-bold text-wine-900 dark:text-white mb-2">Configurações</h2>
+       <p class="text-wine-600 dark:text-wine-400">Gerencie os turnos e preferências do sistema</p>
+      </div>
+
+      <!-- Shift Configuration -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+       <!-- Active Shift Preview -->
+       <div class="glass-effect rounded-2xl shadow-lg overflow-hidden">
+        <div class="p-6">
+         <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6 flex items-center gap-2">
+          <svg class="w-5 h-5 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Turnos do Caixa
+         </h3>
+         <div class="grid grid-cols-2 gap-4">
+          <!-- Shift 1 Card -->
+          <div id="settings-shift1-card" class="shift-config-card shift-config-active rounded-2xl p-5 border-2 transition-all cursor-default">
+           <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+             <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+            <div>
+             <p id="settings-shift1-name" class="font-bold text-gray-900 dark:text-white">Manhã</p>
+             <p id="settings-shift1-range" class="text-xs text-gray-500 dark:text-gray-400">06:00 — 14:00</p>
+            </div>
+           </div>
+           <div id="settings-shift1-status" class="shift-status-badge shift-status-active">
+            <span class="shift-status-dot"></span> Ativo agora
+           </div>
+          </div>
+          <!-- Shift 2 Card -->
+          <div id="settings-shift2-card" class="shift-config-card rounded-2xl p-5 border-2 transition-all cursor-default">
+           <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+             <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            </div>
+            <div>
+             <p id="settings-shift2-name" class="font-bold text-gray-900 dark:text-white">Noite</p>
+             <p id="settings-shift2-range" class="text-xs text-gray-500 dark:text-gray-400">14:00 — 23:59</p>
+            </div>
+           </div>
+           <div id="settings-shift2-status" class="shift-status-badge shift-status-inactive">
+            <span class="shift-status-dot"></span> Inativo
+           </div>
+          </div>
+         </div>
+         <p class="text-xs text-gray-400 dark:text-wine-500 mt-4 text-center">O turno ativo é detectado automaticamente pelo horário atual</p>
+        </div>
+       </div>
+
+       <!-- Shift Config Form -->
+       <div class="glass-effect rounded-2xl p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6 flex items-center gap-2">
+         <svg class="w-5 h-5 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+         Configurar Horários
+        </h3>
+        <form id="shift-config-form" onsubmit="saveShiftConfig(event)" class="space-y-5">
+         <!-- Shift 1 -->
+         <div class="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30">
+          <p class="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
+           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+           Turno 1
+          </p>
+          <div class="space-y-3">
+           <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nome</label>
+            <input type="text" id="shift1-name" value="Manhã" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+           </div>
+           <div class="grid grid-cols-2 gap-3">
+            <div>
+             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Início</label>
+             <input type="time" id="shift1-start" value="06:00" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+            </div>
+            <div>
+             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fim</label>
+             <input type="time" id="shift1-end" value="14:00" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+            </div>
+           </div>
+          </div>
+         </div>
+         <!-- Shift 2 -->
+         <div class="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200/50 dark:border-indigo-800/30">
+          <p class="text-sm font-semibold text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-2">
+           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+           Turno 2
+          </p>
+          <div class="space-y-3">
+           <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nome</label>
+            <input type="text" id="shift2-name" value="Noite" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+           </div>
+           <div class="grid grid-cols-2 gap-3">
+            <div>
+             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Início</label>
+             <input type="time" id="shift2-start" value="14:00" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+            </div>
+            <div>
+             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Fim</label>
+             <input type="time" id="shift2-end" value="23:59" class="w-full px-3 py-2.5 rounded-lg border border-wine-200 dark:border-wine-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm">
+            </div>
+           </div>
+          </div>
+         </div>
+         <button type="submit" class="btn-primary w-full text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Salvar Configurações
+         </button>
+        </form>
+       </div>
+      </div>
+
+      <!-- Shift Reports Summary -->
+      <div class="glass-effect rounded-2xl p-6 shadow-lg">
+       <h3 class="text-lg font-bold text-wine-900 dark:text-white mb-6 flex items-center gap-2">
+        <svg class="w-5 h-5 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Resumo por Turno (Hoje)
+       </h3>
+       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="shift-summary-today">
+        <div class="shift-summary-card shift-summary-morning rounded-2xl p-5">
+         <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+           <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+           </div>
+           <div>
+            <p id="shift-summary-name1" class="font-bold text-gray-900 dark:text-white">Manhã</p>
+            <p id="shift-summary-range1" class="text-xs text-gray-500 dark:text-gray-400">06:00 — 14:00</p>
+           </div>
+          </div>
+         </div>
+         <div class="grid grid-cols-3 gap-3">
+          <div class="text-center">
+           <p id="shift1-stat-count" class="text-xl font-black text-gray-900 dark:text-white">0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Orçamentos</p>
+          </div>
+          <div class="text-center">
+           <p id="shift1-stat-revenue" class="text-xl font-black text-accent-600 dark:text-accent-400">R$ 0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Receita</p>
+          </div>
+          <div class="text-center">
+           <p id="shift1-stat-profit" class="text-xl font-black text-green-600 dark:text-green-400">R$ 0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Lucro</p>
+          </div>
+         </div>
+        </div>
+        <div class="shift-summary-card shift-summary-night rounded-2xl p-5">
+         <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+           <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+           </div>
+           <div>
+            <p id="shift-summary-name2" class="font-bold text-gray-900 dark:text-white">Noite</p>
+            <p id="shift-summary-range2" class="text-xs text-gray-500 dark:text-gray-400">14:00 — 23:59</p>
+           </div>
+          </div>
+         </div>
+         <div class="grid grid-cols-3 gap-3">
+          <div class="text-center">
+           <p id="shift2-stat-count" class="text-xl font-black text-gray-900 dark:text-white">0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Orçamentos</p>
+          </div>
+          <div class="text-center">
+           <p id="shift2-stat-revenue" class="text-xl font-black text-accent-600 dark:text-accent-400">R$ 0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Receita</p>
+          </div>
+          <div class="text-center">
+           <p id="shift2-stat-profit" class="text-xl font-black text-green-600 dark:text-green-400">R$ 0</p>
+           <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Lucro</p>
+          </div>
+         </div>
+        </div>
+       </div>
+      </div>
+     </div>
+<!-- Suppliers Page -->
      <div id="page-suppliers" class="page-content hidden">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
        <div>
@@ -610,7 +955,61 @@
      </div>
     </div>
    </main>
-  </div><!-- Product Modal -->
+  </div><!-- Quick Stock Modal -->
+  <div id="quick-stock-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this)closeQuickStockModal()">
+   <div class="w-full max-w-[340px] rounded-3xl shadow-2xl overflow-hidden animate-slide-in bg-white dark:bg-gray-900 border border-gray-200/60 dark:border-gray-700/60">
+    <input type="hidden" id="qs-product-id">
+    <!-- Header -->
+    <div class="relative bg-gradient-to-br from-emerald-500 to-teal-600 px-6 pt-5 pb-8 text-white">
+     <button onclick="closeQuickStockModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+     </button>
+     <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      </div>
+      <div class="min-w-0">
+       <p class="text-white/70 text-xs font-medium uppercase tracking-wider">Ajustar Estoque</p>
+       <p id="qs-product-name" class="font-bold text-base truncate"></p>
+      </div>
+     </div>
+     <div class="text-center">
+      <p class="text-white/60 text-[11px] uppercase tracking-wider mb-0.5">Estoque Atual</p>
+      <p id="qs-current-stock" class="text-4xl font-black leading-none">0</p>
+     </div>
+    </div>
+    <!-- Body -->
+    <div class="px-6 pb-6 -mt-4">
+     <!-- Input Card -->
+     <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <label class="block text-[11px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-3 text-center">Definir novo valor</label>
+      <input type="number" id="qs-new-stock" min="0" class="w-full text-center text-4xl font-black py-3 rounded-2xl border-0 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" oninput="qsUpdatePreview()" onkeydown="if(event.key==='Enter')saveQuickStock()">
+      <!-- Diff preview -->
+      <div id="qs-diff" class="text-center mt-2 h-5"></div>
+      <!-- Quick adjust buttons -->
+      <div class="grid grid-cols-4 gap-2 mt-3">
+       <button onclick="qsAdjust(-10)" type="button" class="py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 font-bold text-sm transition-colors">−10</button>
+       <button onclick="qsAdjust(-1)" type="button" class="py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 font-bold text-sm transition-colors">−1</button>
+       <button onclick="qsAdjust(1)" type="button" class="py-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-bold text-sm transition-colors">+1</button>
+       <button onclick="qsAdjust(10)" type="button" class="py-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-bold text-sm transition-colors">+10</button>
+      </div>
+     </div>
+     <!-- Save -->
+     <button onclick="saveQuickStock()" class="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all text-sm tracking-wide uppercase">
+      Salvar
+     </button>
+     <!-- History -->
+     <div id="qs-history-section" class="mt-4 hidden">
+      <div class="flex items-center justify-between mb-2">
+       <p class="text-[11px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500">Histórico de ajustes</p>
+       <button onclick="clearStockHistory(document.getElementById('qs-product-id').value)" class="text-[10px] text-gray-400 hover:text-red-500 transition-colors">Limpar</button>
+      </div>
+      <div id="qs-history-list" class="space-y-1.5 max-h-[160px] overflow-y-auto scrollbar-thin"></div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <!-- Product Modal -->
   <div id="product-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90%] overflow-y-auto scrollbar-thin animate-slide-in">
     <div class="p-6 border-b border-wine-200/30 dark:border-wine-800/30 flex items-center justify-between sticky top-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm z-10">
